@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Per-user data — any authenticated user (including anonymous) can read/write own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /diagnoses/{diagnosisId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /plants/{plantId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Global species cache — any auth user (including anonymous) can read
+    // Writes are via admin SDK from Cloud Functions only
+    match /speciesCache/{speciesId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Weather cache — same as species cache
+    match /weatherCache/{cacheId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Seasonal calendars cache — same
+    match /seasonalCalendars/{calendarId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}
