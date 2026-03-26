@@ -41,6 +41,8 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
       Navigator.of(context)..pop()..pop();
     } on FirebaseAuthException catch (e) {
       setState(() { _error = _friendlyError(e.code); _loading = false; });
+    } catch (_) {
+      setState(() { _error = 'Something went wrong. Please try again.'; _loading = false; });
     }
   }
 
