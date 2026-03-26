@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/diagnosis_model.dart';
 import '../services/storage_service.dart';
@@ -114,7 +115,7 @@ class _DiagnosesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<DiagnosisResult>>(
-      stream: FirebaseService.diagnosesStream(),
+      stream: FirebaseService.diagnosesStream(FirebaseAuth.instance.currentUser?.uid ?? ''),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
