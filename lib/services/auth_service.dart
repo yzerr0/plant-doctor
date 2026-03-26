@@ -4,7 +4,11 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   final FirebaseAuth _auth;
-  AuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn;
+
+  AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
+      : _auth = auth ?? FirebaseAuth.instance,
+        _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   bool get isAnonymous => _auth.currentUser?.isAnonymous ?? true;
 
@@ -13,14 +17,14 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await GoogleSignIn().signOut();
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
   /// Links anonymous user to Google, or signs in with Google if no anon user.
   /// Falls back to direct sign-in if the Google account already has a Firebase account.
   Future<void> linkOrSignInWithGoogle() async {
-    final googleUser = await GoogleSignIn().signIn();
+    final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) return; // user cancelled
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -60,7 +64,12 @@ class AuthService {
 
   Future<void> _linkOrSignIn(AuthCredential credential) async {
     final current = _auth.currentUser;
-    if (current != null && current.isAnonymous) {
+    if (current == null) {
+      await _auth.signInWithCredential(credential);
+      return;
+    }
+    if (current.isAnonymous) {
+      // Anonymous user: upgrade to real account; fall back to sign-in if account exists
       try {
         await current.linkWithCredential(credential);
         return;
@@ -69,9 +78,11 @@ class AuthService {
             e.code != 'email-already-in-use') {
           rethrow;
         }
-        // Account already exists — fall through to sign in directly
       }
+      await _auth.signInWithCredential(credential);
+    } else {
+      // Already a real user: link additional credential to their account
+      await current.linkWithCredential(credential);
     }
-    await _auth.signInWithCredential(credential);
   }
 }
