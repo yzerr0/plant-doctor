@@ -25,17 +25,12 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
     super.dispose();
   }
 
-  Future<void> _submit({required bool register}) async {
+  Future<void> _submit() async {
     setState(() { _loading = true; _error = null; });
     try {
       final auth = ref.read(authServiceProvider);
-      if (register) {
-        await auth.registerWithEmail(
-            _emailCtrl.text.trim(), _passwordCtrl.text);
-      } else {
-        await auth.linkOrSignInWithEmail(
-            _emailCtrl.text.trim(), _passwordCtrl.text);
-      }
+      await auth.linkOrSignInWithEmail(
+          _emailCtrl.text.trim(), _passwordCtrl.text);
       if (!mounted) return;
       // Dismiss both EmailAuthScreen and AuthScreen
       Navigator.of(context)..pop()..pop();
@@ -115,7 +110,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                 const Center(child: CircularProgressIndicator())
               else ...[
                 ElevatedButton(
-                  onPressed: () => _submit(register: false),
+                  onPressed: _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.green,
                     foregroundColor: Colors.white,
@@ -128,7 +123,7 @@ class _EmailAuthScreenState extends ConsumerState<EmailAuthScreen> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () => _submit(register: true),
+                  onPressed: _submit,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
