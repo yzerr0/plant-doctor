@@ -84,5 +84,8 @@ macos/Runner/GoogleService-Info.plist
 # Dev scratch files
 errors.md
 
+# Git worktrees
+.worktrees/
+
 # OS artifacts
 Thumbs.db
