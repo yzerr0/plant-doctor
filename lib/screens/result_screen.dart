@@ -1,16 +1,18 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/diagnosis_model.dart';
+import '../providers/auth_provider.dart';
 import '../theme.dart';
-import '../widgets/severity_badge.dart';
 import '../widgets/issue_card.dart';
+import 'auth_screen.dart';
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends ConsumerWidget {
   final DiagnosisResult diagnosis;
   const ResultScreen({super.key, required this.diagnosis});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: CustomScrollView(
@@ -35,6 +37,7 @@ class ResultScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _signInBanner(context, ref),
                 _speciesHeader(),
                 _severityBanner(),
                 _summary(),
@@ -51,11 +54,40 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  Widget _signInBanner(BuildContext context, WidgetRef ref) {
+    final isAnonymous =
+        ref.watch(authStateProvider).valueOrNull?.isAnonymous ?? true;
+    if (!isAnonymous) return const SizedBox.shrink();
+    return Container(
+      color: AppTheme.lightGreen,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Sign in to save your history across devices',
+              style: TextStyle(fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AuthScreen()),
+            ),
+            child: const Text('Sign In',
+                style: TextStyle(
+                    color: AppTheme.green, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _speciesHeader() {
     final parts = diagnosis.plantSpecies.split('(');
     final commonName = parts[0].trim();
     final scientific = parts.length > 1 ? parts[1].replaceAll(')', '').trim() : '';
-    final pct = '${(diagnosis.confidence * 100).toStringAsFixed(0)}%';
+    final pct = diagnosis.identificationCertainty;
 
     return Container(
       color: Colors.white,
