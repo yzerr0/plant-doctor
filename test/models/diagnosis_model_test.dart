@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_doctor/models/diagnosis_model.dart';
+import 'package:plant_doctor/services/storage_service.dart';
 
 void main() {
   group('PlantIssue.fromJson', () {
@@ -111,6 +112,15 @@ void main() {
       final after = DateTime.now();
       expect(result.createdAt.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
       expect(result.createdAt.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+    });
+  });
+
+  group('StorageService.imagePath', () {
+    test('uses users/{uid}/diagnoses/ prefix to satisfy storage rules', () {
+      expect(
+        StorageService.imagePath('uid123', 1000),
+        'users/uid123/diagnoses/1000.jpg',
+      );
     });
   });
 }
