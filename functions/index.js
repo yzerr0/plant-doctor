@@ -244,7 +244,7 @@ CRITICAL RULES:
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
+    max_tokens: 1536,
     messages: [
       {
         role: "user",
@@ -287,8 +287,9 @@ exports.diagnosePlant = onCall(
       // Cache HIT — disease detection only (~35–40% fewer Claude output tokens)
       console.log(`Species cache HIT for ${species.scientificName}`);
       const diseaseResult = await diagnoseDisease(imageUrl, species, anthropicKey.value());
+      const { cachedAt: _cachedAt, ...speciesInfoData } = cacheDoc.data();
       claudeResult = {
-        speciesInfo: cacheDoc.data(),
+        speciesInfo: speciesInfoData,
         ...diseaseResult,
       };
     } else {
