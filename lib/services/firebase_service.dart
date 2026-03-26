@@ -15,6 +15,15 @@ class FirebaseService {
         .set(result.toFirestore());
   }
 
+  static Future<void> deleteDiagnosis(String id) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('diagnoses')
+        .doc(id)
+        .delete();
+  }
+
   static Stream<List<DiagnosisResult>> diagnosesStream(String uid) {
     return _db
         .collection('users')
