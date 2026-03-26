@@ -193,7 +193,19 @@ class _DiagnosesList extends ConsumerWidget {
               child: const Icon(Icons.delete_outline,
                   color: Colors.white, size: 24),
             ),
-            onDismissed: (_) => FirebaseService.deleteDiagnosis(items[i].id),
+            confirmDismiss: (_) async {
+              try {
+                await FirebaseService.deleteDiagnosis(items[i].id);
+                return true;
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Delete failed. Please try again.')),
+                  );
+                }
+                return false;
+              }
+            },
             child: _DiagnosisCard(
               diagnosis: items[i],
               onTap: () => Navigator.push(
