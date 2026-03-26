@@ -57,7 +57,9 @@ class _AppRouterState extends ConsumerState<_AppRouter> {
           : const Scaffold(body: Center(child: CircularProgressIndicator())),
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stackTrace) => const HomeScreen(),
+      error: (error, stackTrace) => const Scaffold(
+        body: Center(child: Text('Authentication error. Please restart the app.')),
+      ),
     );
   }
 }
