@@ -1,3 +1,31 @@
+class WeatherSnapshot {
+  final double tempC;
+  final int humidityPct;
+  final double rainMm;
+  final String description;
+
+  const WeatherSnapshot({
+    required this.tempC,
+    required this.humidityPct,
+    required this.rainMm,
+    required this.description,
+  });
+
+  factory WeatherSnapshot.fromJson(Map<String, dynamic> j) => WeatherSnapshot(
+    tempC: (j['tempC'] as num).toDouble(),
+    humidityPct: j['humidityPct'] as int,
+    rainMm: (j['rainMm'] as num).toDouble(),
+    description: j['description'] as String,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'tempC': tempC,
+    'humidityPct': humidityPct,
+    'rainMm': rainMm,
+    'description': description,
+  };
+}
+
 class SpeciesInfo {
   final String origin, lifespan, difficulty, light, water, humidity,
       temperature, toxicity, funFact;
@@ -11,7 +39,7 @@ class SpeciesInfo {
   factory SpeciesInfo.fromJson(Map<String, dynamic> j) => SpeciesInfo(
     origin: j['origin'] ?? '',       lifespan: j['lifespan'] ?? '',
     difficulty: j['difficulty'] ?? '', light: j['light'] ?? '',
-    water: j['water'] ?? '',          humidity: j['humidity'] ?? '',
+    water: j['water'] ?? '',           humidity: j['humidity'] ?? '',
     temperature: j['temperature'] ?? '', toxicity: j['toxicity'] ?? '',
     funFact: j['funFact'] ?? '',
   );
@@ -49,17 +77,22 @@ class PlantIssue {
 
 class DiagnosisResult {
   final String id, imageUrl, plantSpecies, overallSeverity, summary;
-  final double confidence;
+  final String identificationCertainty;
+  final String identificationLevel;
   final int followUpIn;
   final SpeciesInfo speciesInfo;
   final List<PlantIssue> issues;
   final DateTime createdAt;
+  final WeatherSnapshot? weatherAtScan;
+  final String? plantProfileId;
 
   const DiagnosisResult({
     required this.id, required this.imageUrl, required this.plantSpecies,
-    required this.overallSeverity, required this.summary, required this.confidence,
+    required this.overallSeverity, required this.summary,
+    required this.identificationCertainty, required this.identificationLevel,
     required this.followUpIn, required this.speciesInfo,
     required this.issues, required this.createdAt,
+    this.weatherAtScan, this.plantProfileId,
   });
 
   factory DiagnosisResult.fromJson(
@@ -70,7 +103,8 @@ class DiagnosisResult {
       plantSpecies: j['plantSpecies'] ?? 'Unknown Plant',
       overallSeverity: (j['overallSeverity'] ?? 'unknown').toString().toLowerCase(),
       summary: j['summary'] ?? '',
-      confidence: (j['confidence'] ?? 0.0).toDouble(),
+      identificationCertainty: (j['identificationCertainty'] ?? 'uncertain').toString().toLowerCase(),
+      identificationLevel: (j['identificationLevel'] ?? 'unknown').toString().toLowerCase(),
       followUpIn: j['followUpIn'] ?? 7,
       speciesInfo: SpeciesInfo.fromJson(
           Map<String, dynamic>.from(j['speciesInfo'] ?? {})),
@@ -80,15 +114,16 @@ class DiagnosisResult {
       createdAt: DateTime.now(),
     );
 
-  // Rebuild from Firestore — parses stored createdAt instead of using DateTime.now()
-  factory DiagnosisResult.fromFirestore(String id, Map<String, dynamic> j) =>
-    DiagnosisResult(
+  factory DiagnosisResult.fromFirestore(String id, Map<String, dynamic> j) {
+    final weatherJson = j['weatherAtScan'] as Map<String, dynamic>?;
+    return DiagnosisResult(
       id: id,
       imageUrl: j['imageUrl'] ?? '',
       plantSpecies: j['plantSpecies'] ?? 'Unknown Plant',
       overallSeverity: (j['overallSeverity'] ?? 'unknown').toString().toLowerCase(),
       summary: j['summary'] ?? '',
-      confidence: (j['confidence'] ?? 0.0).toDouble(),
+      identificationCertainty: (j['identificationCertainty'] ?? 'uncertain').toString().toLowerCase(),
+      identificationLevel: (j['identificationLevel'] ?? 'unknown').toString().toLowerCase(),
       followUpIn: j['followUpIn'] ?? 7,
       speciesInfo: SpeciesInfo.fromJson(
           Map<String, dynamic>.from(j['speciesInfo'] ?? {})),
@@ -96,17 +131,23 @@ class DiagnosisResult {
           .map((e) => PlantIssue.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
+      weatherAtScan: weatherJson != null ? WeatherSnapshot.fromJson(weatherJson) : null,
+      plantProfileId: j['plantProfileId'] as String?,
     );
+  }
 
   Map<String, dynamic> toFirestore() => {
     'plantSpecies': plantSpecies,
     'overallSeverity': overallSeverity,
     'summary': summary,
-    'confidence': confidence,
+    'identificationCertainty': identificationCertainty,
+    'identificationLevel': identificationLevel,
     'followUpIn': followUpIn,
     'imageUrl': imageUrl,
     'createdAt': createdAt.toIso8601String(),
     'speciesInfo': speciesInfo.toMap(),
     'issues': issues.map((i) => i.toMap()).toList(),
+    if (weatherAtScan != null) 'weatherAtScan': weatherAtScan!.toJson(),
+    if (plantProfileId != null) 'plantProfileId': plantProfileId,
   };
 }
