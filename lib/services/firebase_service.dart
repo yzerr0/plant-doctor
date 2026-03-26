@@ -15,10 +15,10 @@ class FirebaseService {
         .set(result.toFirestore());
   }
 
-  static Stream<List<DiagnosisResult>> diagnosesStream() {
+  static Stream<List<DiagnosisResult>> diagnosesStream(String uid) {
     return _db
         .collection('users')
-        .doc(_uid)
+        .doc(uid)
         .collection('diagnoses')
         .orderBy('createdAt', descending: true)
         .limit(20)
