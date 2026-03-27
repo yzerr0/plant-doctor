@@ -13,6 +13,9 @@ import '../widgets/severity_badge.dart';
 import 'auth_screen.dart';
 import 'loading_screen.dart';
 import 'result_screen.dart';
+import 'package:geolocator/geolocator.dart';
+import '../services/location_service.dart';
+import '../widgets/weather_panel.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -39,12 +42,14 @@ class HomeScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: const Column(
+      body: Column(
         children: [
-          SizedBox(height: 20),
-          _ScanButton(),
-          SizedBox(height: 16),
-          Padding(
+          const SizedBox(height: 16),
+          const _ScanButton(),
+          const SizedBox(height: 12),
+          const WeatherPanel(),
+          const SizedBox(height: 16),
+          const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
@@ -56,8 +61,8 @@ class HomeScreen extends ConsumerWidget {
                       letterSpacing: 1.2)),
             ),
           ),
-          SizedBox(height: 8),
-          Expanded(child: _DiagnosesList()),
+          const SizedBox(height: 8),
+          const Expanded(child: _DiagnosesList()),
         ],
       ),
     );
@@ -102,9 +107,20 @@ class _ScanButton extends ConsumerWidget {
     try {
       final imageUrl = await StorageService.uploadImage(File(photo.path));
 
+      Position? position;
+      if (await LocationService.hasPermission()) {
+        position = await LocationService.getCurrentPosition();
+      }
+
       final callable =
           FirebaseFunctions.instance.httpsCallable('diagnosePlant');
-      final response = await callable.call({'imageUrl': imageUrl});
+      final response = await callable.call({
+        'imageUrl': imageUrl,
+        if (position != null) ...{
+          'lat': position.latitude,
+          'lng': position.longitude,
+        },
+      });
 
       final rawDiagnosis =
           Map<String, dynamic>.from(response.data['diagnosis']);
