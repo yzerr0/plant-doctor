@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/diagnosis_model.dart';
 import '../providers/auth_provider.dart';
@@ -22,13 +23,30 @@ class ResultScreen extends ConsumerWidget {
             pinned: true,
             backgroundColor: AppTheme.green,
             foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.content_copy_outlined),
+                tooltip: 'Copy summary',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(
+                    text: '${diagnosis.plantSpecies}\n\n${diagnosis.summary}',
+                  ));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: CachedNetworkImage(
                 imageUrl: diagnosis.imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: AppTheme.lightGreen,
+                placeholder: (_, _) => Container(color: AppTheme.lightGreen,
                   child: const Center(child: Icon(Icons.local_florist, size: 60, color: AppTheme.green))),
-                errorWidget: (_, __, ___) => Container(color: AppTheme.lightGreen,
+                errorWidget: (_, _, _) => Container(color: AppTheme.lightGreen,
                   child: const Center(child: Icon(Icons.local_florist, size: 60, color: AppTheme.green))),
               ),
             ),
@@ -41,7 +59,7 @@ class ResultScreen extends ConsumerWidget {
                 _speciesHeader(),
                 _severityBanner(),
                 _summary(),
-                _careGrid(),
+                _careGrid(context),
                 _funFact(),
                 _issuesSection(),
                 _followUp(),
@@ -87,7 +105,11 @@ class ResultScreen extends ConsumerWidget {
     final parts = diagnosis.plantSpecies.split('(');
     final commonName = parts[0].trim();
     final scientific = parts.length > 1 ? parts[1].replaceAll(')', '').trim() : '';
-    final pct = diagnosis.identificationCertainty;
+    final (chipLabel, chipColor, chipText) = switch (diagnosis.identificationCertainty) {
+      'certain'   => ('✓ Certain',   AppTheme.green,           Colors.white),
+      'likely'    => ('~ Likely',    const Color(0xFFF59E0B),  Colors.white),
+      _           => ('? Uncertain', const Color(0xFF9E9E9E),  Colors.white),
+    };
 
     return Container(
       color: Colors.white,
@@ -109,9 +131,9 @@ class ResultScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.lightGreen,
+              color: chipColor,
               borderRadius: BorderRadius.circular(20)),
-            child: Text(pct, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.green)),
+            child: Text(chipLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: chipText)),
           ),
         ],
       ),
@@ -149,7 +171,7 @@ class ResultScreen extends ConsumerWidget {
     child: Text(diagnosis.summary, style: const TextStyle(fontSize: 14, height: 1.6)),
   );
 
-  Widget _careGrid() {
+  Widget _careGrid(BuildContext context) {
     final s = diagnosis.speciesInfo;
     final cells = [
       ('☀️', 'Light', s.light),
@@ -168,7 +190,10 @@ class ResultScreen extends ConsumerWidget {
         children: [
           const Text('CARE INFO',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          const Text('Tap any cell for full details',
+            style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 10),
           GridView.count(
             crossAxisCount: 3,
             shrinkWrap: true,
@@ -176,31 +201,69 @@ class ResultScreen extends ConsumerWidget {
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
             childAspectRatio: 1.4,
-            children: cells.map((c) => _careCell(c.$1, c.$2, c.$3)).toList(),
+            children: cells.map((c) => _careCell(context, c.$1, c.$2, c.$3)).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _careCell(String emoji, String label, String value) {
+  Widget _careCell(BuildContext context, String emoji, String label, String value) {
     final isToxic = label == 'Toxicity' && value.toLowerCase().contains('toxic');
-    return Container(
-      decoration: BoxDecoration(
-        color: isToxic ? const Color(0xFFFFEBEE) : AppTheme.background,
-        borderRadius: BorderRadius.circular(10)),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 4),
-          Text(value.isEmpty ? '—' : value,
-            style: TextStyle(fontSize: 10, color: isToxic ? Colors.red[800] : Colors.black87, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis),
-        ],
+    return Material(
+      color: isToxic ? const Color(0xFFFFEBEE) : AppTheme.background,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _showCareDetail(context, emoji, label, value),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 4),
+              Text(value.isEmpty ? '—' : value,
+                style: TextStyle(fontSize: 10, color: isToxic ? Colors.red[800] : Colors.black87, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCareDetail(BuildContext context, String emoji, String label, String value) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 12),
+                  Text(label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700,
+                      color: Colors.grey, letterSpacing: 1.2)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(value.isEmpty ? '—' : value,
+                style: const TextStyle(fontSize: 15, height: 1.7)),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
