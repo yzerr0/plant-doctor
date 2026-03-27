@@ -16,8 +16,8 @@ class WeatherSnapshot {
   });
 
   factory WeatherSnapshot.fromJson(Map<String, dynamic> j) => WeatherSnapshot(
-    tempC: (j['tempC'] as num).toDouble(),
-    humidityPct: (j['humidityPct'] as num).toInt(),
+    tempC: (j['tempC'] as num? ?? 0).toDouble(),
+    humidityPct: (j['humidityPct'] as num? ?? 0).toInt(),
     uvIndex: (j['uvIndex'] as num? ?? 0).toInt(),
     rainChancePct: (j['rainChancePct'] as num? ?? 0).toInt(),
     condition: j['condition'] as String? ?? 'cloudy',

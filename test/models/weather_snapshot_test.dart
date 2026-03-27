@@ -21,7 +21,21 @@ void main() {
       expect(snap.windKph, 12.6);
     });
 
-    test('toJson round-trips correctly', () {
+    test('fromJson uses safe defaults for missing optional fields', () {
+      final snap = WeatherSnapshot.fromJson({'tempC': 20.0, 'humidityPct': 50});
+      expect(snap.uvIndex, 0);
+      expect(snap.rainChancePct, 0);
+      expect(snap.condition, 'cloudy');
+      expect(snap.windKph, 0.0);
+    });
+
+    test('fromJson uses safe defaults when tempC and humidityPct are missing', () {
+      final snap = WeatherSnapshot.fromJson({});
+      expect(snap.tempC, 0.0);
+      expect(snap.humidityPct, 0);
+    });
+
+    test('toJson round-trips all 6 fields correctly', () {
       const snap = WeatherSnapshot(
         tempC: 18.0, humidityPct: 70, uvIndex: 5,
         rainChancePct: 40, condition: 'cloudy', windKph: 8.0,
@@ -29,7 +43,11 @@ void main() {
       final json = snap.toJson();
       final restored = WeatherSnapshot.fromJson(json);
       expect(restored.tempC, 18.0);
+      expect(restored.humidityPct, 70);
+      expect(restored.uvIndex, 5);
+      expect(restored.rainChancePct, 40);
       expect(restored.condition, 'cloudy');
+      expect(restored.windKph, 8.0);
     });
   });
 
