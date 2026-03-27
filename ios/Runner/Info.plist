@@ -49,5 +49,12 @@
 	<string>Take a photo of your plant to diagnose its health</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo of your plant to diagnose its health</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>PlantDoctor uses your location to show local weather conditions for better plant care advice and frost alerts.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
