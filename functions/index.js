@@ -84,6 +84,24 @@ function scoreToCertainty(score) {
   return "uncertain";
 }
 
+// ─── Retry helper for transient Claude overload errors (529) ─────────────────
+
+async function withRetry(fn, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err?.status === 529 && attempt < maxAttempts) {
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s
+        console.warn(`Claude overloaded (attempt ${attempt}/${maxAttempts}), retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 // ─── Claude: full analysis (cache miss) — disease detection + species info ────
 
 async function diagnoseAndDescribe(imageUrl, species, apiKey) {
@@ -157,7 +175,7 @@ CRITICAL RULES:
 - Never invent issues; never ignore visible symptoms
 - Return ONLY the JSON`;
 
-  const response = await client.messages.create({
+  const response = await withRetry(() => client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 2048,
     messages: [
@@ -169,7 +187,7 @@ CRITICAL RULES:
         ],
       },
     ],
-  });
+  }));
 
   let text = response.content[0].text
     .trim()
@@ -242,7 +260,7 @@ CRITICAL RULES:
 - If truly healthy: empty issues array, overallSeverity "healthy"
 - Return ONLY the JSON`;
 
-  const response = await client.messages.create({
+  const response = await withRetry(() => client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1536,
     messages: [
@@ -254,7 +272,7 @@ CRITICAL RULES:
         ],
       },
     ],
-  });
+  }));
 
   let text = response.content[0].text
     .trim()
