@@ -39,6 +39,9 @@ dependencies:
   cached_network_image: ^3.3.0
   google_fonts: ^6.2.0
   lottie: ^3.1.0
+  flutter_riverpod: ^2.6.1
+  google_sign_in: ^6.2.2
+  sign_in_with_apple: ^6.1.2
 
 dev_dependencies:
   flutter_test:
@@ -50,6 +53,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.9
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
