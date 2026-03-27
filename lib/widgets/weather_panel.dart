@@ -16,7 +16,9 @@ class WeatherPanel extends ConsumerWidget {
       child: weather.when(
         data: (data) => data == null
             ? _PermissionPrompt(onTap: () async {
-                await LocationService.getCurrentPosition();
+                try {
+                  await LocationService.getCurrentPosition();
+                } catch (_) {}
                 ref.invalidate(locationProvider);
               })
             : _WeatherCard(data: data),
@@ -90,7 +92,9 @@ class _WeatherCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = data.current;
-    final condition = w.condition[0].toUpperCase() + w.condition.substring(1);
+    final condition = w.condition.isNotEmpty
+        ? w.condition[0].toUpperCase() + w.condition.substring(1)
+        : 'Unknown';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
