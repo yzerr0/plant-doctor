@@ -3,6 +3,7 @@ const { defineSecret } = require("firebase-functions/params");
 const Anthropic = require("@anthropic-ai/sdk");
 const admin = require("firebase-admin");
 const { speciesCacheKey } = require("./lib/utils");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -377,6 +378,68 @@ exports.getWeather = onCall(
       throw new HttpsError('invalid-argument', 'lat and lng are required');
     }
     return getWeatherCached(lat, lng, openWeatherKey.value());
+  }
+);
+
+// ─── Scheduled: daily weather alerts (frost + heat wave) ─────────────────────
+
+exports.sendWeatherAlerts = onSchedule(
+  { schedule: '0 7 * * *', timeZone: 'UTC', secrets: [openWeatherKey] },
+  async () => {
+    const usersSnap = await db.collection('users')
+      .where('fcmToken', '!=', null)
+      .get();
+
+    let sent = 0;
+    const tasks = usersSnap.docs.map(async (doc) => {
+      const { fcmToken, lastLat, lastLng } = doc.data();
+      if (!fcmToken || lastLat == null || lastLng == null) return;
+
+      let weatherResult;
+      try {
+        weatherResult = await getWeatherCached(lastLat, lastLng, openWeatherKey.value());
+      } catch (err) {
+        console.warn(`Weather fetch failed for user ${doc.id}:`, err.message);
+        return;
+      }
+
+      const tomorrow = weatherResult.forecast?.[0];
+      if (!tomorrow) return;
+
+      const messages = [];
+
+      if (tomorrow.minTempC <= 2) {
+        messages.push({
+          token: fcmToken,
+          notification: {
+            title: '❄️ Frost Alert',
+            body: `Tomorrow's low is ${tomorrow.minTempC.toFixed(1)}°C. Move sensitive plants indoors tonight.`,
+          },
+        });
+      }
+
+      if (tomorrow.maxTempC >= 38) {
+        messages.push({
+          token: fcmToken,
+          notification: {
+            title: '🌡️ Heat Wave Alert',
+            body: `Tomorrow's high is ${tomorrow.maxTempC.toFixed(1)}°C. Water plants in the evening and provide shade.`,
+          },
+        });
+      }
+
+      for (const msg of messages) {
+        try {
+          await admin.messaging().send(msg);
+          sent++;
+        } catch (err) {
+          console.warn(`FCM send failed for user ${doc.id}:`, err.message);
+        }
+      }
+    });
+
+    await Promise.allSettled(tasks);
+    console.log(`sendWeatherAlerts complete — ${sent} alert(s) sent to ${usersSnap.docs.length} user(s) checked`);
   }
 );
 
