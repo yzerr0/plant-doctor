@@ -469,10 +469,8 @@ exports.diagnosePlant = onCall(
       identificationCertainty: scoreToCertainty(species.speciesScore),
       identificationLevel: species.speciesScore >= 0.15 ? 'species' : 'unknown',
       ...claudeResult,
-      ...(weatherData ? {
-        weatherAtScan: weatherData.current,
-        usHardinessZone: hardinessZone,
-      } : {}),
+      ...(weatherData ? { weatherAtScan: weatherData.current } : {}),
+      ...(hardinessZone != null ? { usHardinessZone: hardinessZone } : {}),
     };
 
     return { success: true, diagnosis };
