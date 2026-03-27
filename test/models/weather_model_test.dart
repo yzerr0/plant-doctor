@@ -52,6 +52,16 @@ void main() {
       expect(data.forecast[0].date, '2026-03-28');
     });
 
+    test('fromJson uses safe defaults when current is absent', () {
+      final data = WeatherData.fromJson({
+        'current': null,
+        'forecast': [],
+      });
+      expect(data.current.tempC, 0.0);
+      expect(data.current.condition, 'cloudy');
+      expect(data.forecast, isEmpty);
+    });
+
     test('fromJson handles empty forecast list', () {
       final json = {
         'current': {

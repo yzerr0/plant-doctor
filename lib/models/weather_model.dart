@@ -30,7 +30,8 @@ class WeatherData {
 
   factory WeatherData.fromJson(Map<String, dynamic> j) => WeatherData(
     current: WeatherSnapshot.fromJson(
-        Map<String, dynamic>.from(j['current'] as Map)),
+        Map<String, dynamic>.from(
+            (j['current'] as Map?) ?? const {})),
     forecast: (j['forecast'] as List? ?? [])
         .map((e) => WeatherForecastDay.fromJson(Map<String, dynamic>.from(e)))
         .toList(),
