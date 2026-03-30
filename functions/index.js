@@ -355,7 +355,19 @@ async function fetchWeatherFromApi(lat, lng, apiKey) {
 async function getWeatherCached(lat, lng, apiKey) {
   const key = `${parseFloat(lat).toFixed(2)}_${parseFloat(lng).toFixed(2)}`;
   const cacheRef = db.collection('weatherCache').doc(key);
-  const cached = await cacheRef.get();
+
+  let cached;
+  try {
+    cached = await Promise.race([
+      cacheRef.get(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore weather cache read timeout after 10s')), 10000)
+      ),
+    ]);
+  } catch (err) {
+    console.error(`Weather cache read failed: ${err.message} — fetching fresh from OpenWeatherMap`);
+    cached = { exists: false };
+  }
 
   if (cached.exists && new Date(cached.data().expiresAt) > new Date()) {
     console.log(`Weather cache HIT for ${key}`);
