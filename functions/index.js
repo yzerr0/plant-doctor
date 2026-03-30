@@ -509,7 +509,20 @@ exports.diagnosePlant = onCall(
     // Step 3: Species cache lookup
     const cacheKey = speciesCacheKey(species.scientificName);
     const cacheRef = db.collection('speciesCache').doc(cacheKey);
-    const cacheDoc = await cacheRef.get();
+    console.log(`Species cache lookup starting for ${cacheKey}...`);
+    let cacheDoc;
+    try {
+      cacheDoc = await Promise.race([
+        cacheRef.get(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore read timeout after 10s')), 10000)
+        ),
+      ]);
+      console.log(`Species cache lookup completed — exists: ${cacheDoc.exists}`);
+    } catch (err) {
+      console.error(`Species cache read failed: ${err.message} — treating as cache miss`);
+      cacheDoc = { exists: false };
+    }
 
     let claudeResult;
     if (cacheDoc.exists) {
