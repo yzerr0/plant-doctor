@@ -23,7 +23,7 @@ class LocationService {
     final LocationSettings settings = Platform.isAndroid
         ? AndroidSettings(
             accuracy: LocationAccuracy.medium,
-            forceAndroidLocationManager: true,
+            forceLocationManager: true,
           )
         : const LocationSettings(accuracy: LocationAccuracy.medium);
 
