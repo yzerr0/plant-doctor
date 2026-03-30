@@ -22,10 +22,10 @@ class LocationService {
     // GMS is unavailable or has connectivity issues.
     final LocationSettings settings = Platform.isAndroid
         ? AndroidSettings(
-            accuracy: LocationAccuracy.medium,
+            accuracy: LocationAccuracy.best,
             forceLocationManager: true,
           )
-        : const LocationSettings(accuracy: LocationAccuracy.medium);
+        : const LocationSettings(accuracy: LocationAccuracy.best);
 
     try {
       return await Geolocator.getCurrentPosition(locationSettings: settings)
