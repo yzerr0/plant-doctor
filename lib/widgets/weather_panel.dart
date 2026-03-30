@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/weather_model.dart';
 import '../providers/weather_provider.dart';
-import '../services/location_service.dart';
 import '../theme.dart';
 
 class WeatherPanel extends ConsumerWidget {
@@ -16,9 +16,7 @@ class WeatherPanel extends ConsumerWidget {
       child: weather.when(
         data: (data) => data == null
             ? _PermissionPrompt(onTap: () async {
-                try {
-                  await LocationService.getCurrentPosition();
-                } catch (_) {}
+                await Geolocator.requestPermission();
                 ref.invalidate(locationProvider);
               })
             : _WeatherCard(data: data),

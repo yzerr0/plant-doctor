@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
@@ -14,13 +16,22 @@ class LocationService {
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) return null;
 
+    // On Android, bypass the Fused Location Provider (requires Google Play
+    // Services) and use the raw Android LocationManager. This works on
+    // emulators with mock GPS set via Extended Controls, and on devices where
+    // GMS is unavailable or has connectivity issues.
+    final LocationSettings settings = Platform.isAndroid
+        ? AndroidSettings(
+            accuracy: LocationAccuracy.medium,
+            forceAndroidLocationManager: true,
+          )
+        : const LocationSettings(accuracy: LocationAccuracy.medium);
+
     try {
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
+      return await Geolocator.getCurrentPosition(locationSettings: settings)
+          .timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      return null;
     } catch (_) {
       return null;
     }
