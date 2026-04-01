@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'services/fcm_service.dart';
 import 'screens/home_screen.dart';
 import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await FcmService.initialize();
   runApp(const ProviderScope(child: PlantDoctorApp()));
 }
 

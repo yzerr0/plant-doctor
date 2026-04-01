@@ -124,22 +124,28 @@ void main() {
       final json = {
         'tempC': 22.5,
         'humidityPct': 65,
-        'rainMm': 0.0,
-        'description': 'clear sky',
+        'uvIndex': 3,
+        'rainChancePct': 20,
+        'condition': 'sunny',
+        'windKph': 12.6,
       };
       final ws = WeatherSnapshot.fromJson(json);
       expect(ws.tempC, 22.5);
       expect(ws.humidityPct, 65);
-      expect(ws.rainMm, 0.0);
-      expect(ws.description, 'clear sky');
+      expect(ws.uvIndex, 3);
+      expect(ws.rainChancePct, 20);
+      expect(ws.condition, 'sunny');
+      expect(ws.windKph, 12.6);
     });
 
     test('toJson round-trips correctly', () {
       const ws = WeatherSnapshot(
-        tempC: 22.5, humidityPct: 65, rainMm: 0.0, description: 'clear sky',
+        tempC: 22.5, humidityPct: 65, uvIndex: 3,
+        rainChancePct: 20, condition: 'sunny', windKph: 12.6,
       );
       expect(ws.toJson(), {
-        'tempC': 22.5, 'humidityPct': 65, 'rainMm': 0.0, 'description': 'clear sky',
+        'tempC': 22.5, 'humidityPct': 65, 'uvIndex': 3,
+        'rainChancePct': 20, 'condition': 'sunny', 'windKph': 12.6,
       });
     });
   });
@@ -170,11 +176,12 @@ void main() {
     test('weatherAtScan is parsed when present', () {
       final stored = Map<String, dynamic>.from(baseStored)
         ..['weatherAtScan'] = {
-          'tempC': 15.0, 'humidityPct': 80, 'rainMm': 2.5, 'description': 'light rain',
+          'tempC': 15.0, 'humidityPct': 80, 'uvIndex': 1,
+          'rainChancePct': 70, 'condition': 'rainy', 'windKph': 5.0,
         };
       final result = DiagnosisResult.fromFirestore('id6', stored);
       expect(result.weatherAtScan?.tempC, 15.0);
-      expect(result.weatherAtScan?.description, 'light rain');
+      expect(result.weatherAtScan?.condition, 'rainy');
     });
 
     test('plantProfileId is null when absent', () {

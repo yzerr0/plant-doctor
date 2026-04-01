@@ -19,9 +19,9 @@ Point. Shoot. Know everything about your plant.
 
 ---
 
-## Current Status — v0.3.0
+## Current Status — v0.4.0
 
-**v0.3 complete. Starting v0.4 (Weather & Environmental Intelligence).**
+**v0.4 complete. Starting v0.5 (Plant Profiles, Journal & Polish).**
 
 Full spec: `docs/superpowers/specs/2026-03-25-plantdoctor-v03-to-v10-design.md`
 
@@ -41,18 +41,28 @@ Completed (v0.3):
 - ✅ Firebase Security Rules locked (per-user paths + cache read-only from functions)
 - ✅ Claude 529 overload retry logic (withRetry — 3 attempts, exponential backoff)
 
+Completed (v0.4):
+- ✅ GPS location (geolocator, AndroidSettings forceLocationManager for emulator compat)
+- ✅ `getWeather` Cloud Function (OpenWeatherMap 2.5, 30-min Firestore cache per grid cell)
+- ✅ Local weather panel on home screen (WeatherPanel widget, 4 states)
+- ✅ Weather-contextualised diagnosis (weather + hardiness zone sent to Claude at scan time)
+- ✅ Frost & heat wave push alerts (FCM + sendWeatherAlerts scheduled function)
+- ✅ Rain-skip watering alerts
+- ✅ USDA hardiness zone detection (phzmapi.org, stored on users/{uid})
+- ✅ Promise.race timeout on all Firestore admin SDK reads (prevents cold-start hangs)
+
 ---
 
 ## Roadmap
 
 ### v0.4 — Weather & Environmental Intelligence ⭐ Killer differentiator
-- [ ] GPS location (geolocator, permission deferred to first use)
-- [ ] `getWeather` Cloud Function (OpenWeatherMap, cache per grid cell 30 min)
-- [ ] Local weather panel on home screen
-- [ ] Weather-contextualised diagnosis (weather sent to Claude at scan time)
-- [ ] Frost & heat wave push alerts (FCM)
-- [ ] Rain-skip watering alerts
-- [ ] USDA hardiness zone detection
+- ✅ GPS location (geolocator, permission deferred to first use)
+- ✅ `getWeather` Cloud Function (OpenWeatherMap, cache per grid cell 30 min)
+- ✅ Local weather panel on home screen
+- ✅ Weather-contextualised diagnosis (weather sent to Claude at scan time)
+- ✅ Frost & heat wave push alerts (FCM)
+- ✅ Rain-skip watering alerts
+- ✅ USDA hardiness zone detection
 
 ### v0.5 — Plant Profiles, Journal & Polish
 - [ ] Named plant profiles (Firestore `users/{uid}/plants/`)

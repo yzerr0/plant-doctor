@@ -3,12 +3,14 @@ const { defineSecret } = require("firebase-functions/params");
 const Anthropic = require("@anthropic-ai/sdk");
 const admin = require("firebase-admin");
 const { speciesCacheKey } = require("./lib/utils");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 admin.initializeApp();
 const db = admin.firestore();
 
 const anthropicKey = defineSecret("ANTHROPIC_API_KEY");
 const kindwiseKey = defineSecret("KINDWISE_API_KEY");
+const openWeatherKey = defineSecret("OPENWEATHER_API_KEY");
 
 // ─── Kindwise plant.id — species identification only ─────────────────────────
 
@@ -104,7 +106,7 @@ async function withRetry(fn, maxAttempts = 3) {
 
 // ─── Claude: full analysis (cache miss) — disease detection + species info ────
 
-async function diagnoseAndDescribe(imageUrl, species, apiKey) {
+async function diagnoseAndDescribe(imageUrl, species, apiKey, weatherContext = '') {
   const client = new Anthropic({ apiKey });
   const { displayName, scientificName, genus, speciesScore } = species;
 
@@ -138,6 +140,7 @@ Based on what you physically see, identify all distinct problems. Common ${genus
 - Environmental: uniform crispy edges (drought/salt), bleached patches (sunburn), dark mushy areas (overwatering/root rot)
 - Pests: irregular holes, stippling, webbing, sticky deposits
 
+${weatherContext ? `\nCURRENT LOCAL CONDITIONS (consider these as contributing factors):\n${weatherContext}\n` : ''}
 STEP 3 — OUTPUT
 Return ONLY this JSON (no markdown, no code fences):
 {
@@ -201,7 +204,7 @@ CRITICAL RULES:
 
 // ─── Claude: disease detection only (cache hit) — ~35-40% fewer tokens ────────
 
-async function diagnoseDisease(imageUrl, species, apiKey) {
+async function diagnoseDisease(imageUrl, species, apiKey, weatherContext = '') {
   const client = new Anthropic({ apiKey });
   const { displayName, scientificName, genus, speciesScore } = species;
 
@@ -235,6 +238,7 @@ Based on what you physically see, identify all distinct problems. Common ${genus
 - Environmental: uniform crispy edges (drought/salt), bleached patches (sunburn), dark mushy areas (overwatering/root rot)
 - Pests: irregular holes, stippling, webbing, sticky deposits
 
+${weatherContext ? `\nCURRENT LOCAL CONDITIONS (consider these as contributing factors):\n${weatherContext}\n` : ''}
 STEP 3 — OUTPUT
 Return ONLY this JSON (no markdown, no code fences):
 {
@@ -284,51 +288,277 @@ CRITICAL RULES:
   return JSON.parse(text);
 }
 
+// ─── Internal weather fetch helper (used by both getWeather and diagnosePlant) ─
+
+function mapCondition(weatherId) {
+  if (weatherId >= 200 && weatherId < 300) return 'stormy';
+  if (weatherId >= 300 && weatherId < 600) return 'rainy';
+  if (weatherId >= 600 && weatherId < 700) return 'rainy'; // snow
+  if (weatherId === 800) return 'sunny';
+  return 'cloudy';
+}
+
+async function fetchWeatherFromApi(lat, lng, apiKey) {
+  const [currentRes, forecastRes] = await Promise.all([
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric`),
+    fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric&cnt=40`),
+  ]);
+
+  if (!currentRes.ok || !forecastRes.ok) {
+    throw new Error(`OpenWeatherMap error: ${currentRes.status} / ${forecastRes.status}`);
+  }
+
+  const [currentData, forecastData] = await Promise.all([
+    currentRes.json(),
+    forecastRes.json(),
+  ]);
+
+  const current = {
+    tempC: Math.round(currentData.main.temp * 10) / 10,
+    humidityPct: currentData.main.humidity,
+    uvIndex: 0, // not available on OWM 2.5 free tier
+    rainChancePct: currentData.rain?.['1h'] > 0 ? 100 : 0,
+    condition: mapCondition(currentData.weather[0].id),
+    windKph: Math.round(currentData.wind.speed * 3.6 * 10) / 10,
+  };
+
+  // Aggregate 3-hour slots into daily forecast
+  const days = {};
+  for (const item of forecastData.list) {
+    const date = item.dt_txt.split(' ')[0];
+    if (!days[date]) {
+      days[date] = { rainChancePct: 0, minTempC: item.main.temp_min, maxTempC: item.main.temp_max };
+    }
+    days[date].rainChancePct = Math.max(days[date].rainChancePct, Math.round((item.pop ?? 0) * 100));
+    days[date].minTempC = Math.min(days[date].minTempC, item.main.temp_min);
+    days[date].maxTempC = Math.max(days[date].maxTempC, item.main.temp_max);
+  }
+
+  const forecast = Object.entries(days)
+    .slice(0, 5)
+    .map(([date, data]) => ({
+      date,
+      rainChancePct: data.rainChancePct,
+      minTempC: Math.round(data.minTempC * 10) / 10,
+      maxTempC: Math.round(data.maxTempC * 10) / 10,
+    }));
+
+  const now = new Date();
+  return {
+    current,
+    forecast,
+    fetchedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+  };
+}
+
+async function getWeatherCached(lat, lng, apiKey) {
+  const key = `${parseFloat(lat).toFixed(2)}_${parseFloat(lng).toFixed(2)}`;
+  const cacheRef = db.collection('weatherCache').doc(key);
+
+  let cached;
+  try {
+    cached = await Promise.race([
+      cacheRef.get(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore weather cache read timeout after 10s')), 10000)
+      ),
+    ]);
+  } catch (err) {
+    console.error(`Weather cache read failed: ${err.message} — fetching fresh from OpenWeatherMap`);
+    cached = { exists: false };
+  }
+
+  if (cached.exists && new Date(cached.data().expiresAt) > new Date()) {
+    console.log(`Weather cache HIT for ${key}`);
+    return cached.data();
+  }
+
+  console.log(`Weather cache MISS for ${key} — fetching from OpenWeatherMap`);
+  const result = await fetchWeatherFromApi(lat, lng, apiKey);
+  cacheRef.set(result).catch((err) => console.error('Weather cache write failed:', err));
+  return result;
+}
+
+// ─── Cloud Function: getWeather callable ─────────────────────────────────────
+
+exports.getWeather = onCall(
+  { secrets: [openWeatherKey] },
+  async (request) => {
+    const { lat, lng } = request.data;
+    if (lat == null || lng == null) {
+      throw new HttpsError('invalid-argument', 'lat and lng are required');
+    }
+    return getWeatherCached(lat, lng, openWeatherKey.value());
+  }
+);
+
+// ─── Scheduled: daily weather alerts (frost + heat wave) ─────────────────────
+
+exports.sendWeatherAlerts = onSchedule(
+  { schedule: '0 7 * * *', timeZone: 'UTC', secrets: [openWeatherKey] },
+  async () => {
+    const usersSnap = await db.collection('users')
+      .where('fcmToken', '!=', null)
+      .get();
+
+    let sent = 0;
+    const tasks = usersSnap.docs.map(async (doc) => {
+      const { fcmToken, lastLat, lastLng } = doc.data();
+      if (!fcmToken || lastLat == null || lastLng == null) return;
+
+      let weatherResult;
+      try {
+        weatherResult = await getWeatherCached(lastLat, lastLng, openWeatherKey.value());
+      } catch (err) {
+        console.warn(`Weather fetch failed for user ${doc.id}:`, err.message);
+        return;
+      }
+
+      const tomorrow = weatherResult.forecast?.[0];
+      if (!tomorrow) return;
+
+      const messages = [];
+
+      if (tomorrow.minTempC <= 2) {
+        messages.push({
+          token: fcmToken,
+          notification: {
+            title: '❄️ Frost Alert',
+            body: `Tomorrow's low is ${tomorrow.minTempC.toFixed(1)}°C. Move sensitive plants indoors tonight.`,
+          },
+        });
+      }
+
+      if (tomorrow.maxTempC >= 38) {
+        messages.push({
+          token: fcmToken,
+          notification: {
+            title: '🌡️ Heat Wave Alert',
+            body: `Tomorrow's high is ${tomorrow.maxTempC.toFixed(1)}°C. Water plants in the evening and provide shade.`,
+          },
+        });
+      }
+
+      for (const msg of messages) {
+        try {
+          await admin.messaging().send(msg);
+          sent++;
+        } catch (err) {
+          console.warn(`FCM send failed for user ${doc.id}:`, err.message);
+        }
+      }
+    });
+
+    await Promise.allSettled(tasks);
+    console.log(`sendWeatherAlerts complete — ${sent} alert(s) sent to ${usersSnap.docs.length} user(s) checked`);
+  }
+);
+
+// ─── USDA hardiness zone detection (US only via phzmapi.org) ─────────────────
+
+async function detectHardinessZone(lat, lng) {
+  try {
+    const res = await fetch(`https://phzmapi.org/${lat}/${lng}.json`, {
+      signal: AbortSignal.timeout(3000), // 3s timeout — non-critical
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.zone ?? null;
+  } catch {
+    return null; // non-US coordinates or API unavailable — silently return null
+  }
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 exports.diagnosePlant = onCall(
-  { secrets: [anthropicKey, kindwiseKey], timeoutSeconds: 120, minInstances: 1 },
+  { secrets: [anthropicKey, kindwiseKey, openWeatherKey], timeoutSeconds: 120, minInstances: 1 },
   async (request) => {
-    const { imageUrl } = request.data;
+    const { imageUrl, lat, lng } = request.data;
+    const uid = request.auth?.uid;
 
     // Step 1: Kindwise — species identification
     const kindwiseRaw = await identifySpecies(imageUrl, kindwiseKey.value());
     const species = parseSpeciesResult(kindwiseRaw);
 
-    // Step 2: Species cache lookup
+    // Step 2: Weather (optional — only if lat/lng provided)
+    let weatherData = null;
+    let hardinessZone = null;
+    let weatherContext = '';
+
+    if (lat != null && lng != null) {
+      try {
+        weatherData = await getWeatherCached(lat, lng, openWeatherKey.value());
+        const w = weatherData.current;
+        const tomorrow = weatherData.forecast?.[0];
+        weatherContext = [
+          `Temperature: ${w.tempC}°C, Humidity: ${w.humidityPct}%, Conditions: ${w.condition}`,
+          `Wind: ${w.windKph} km/h, UV index: ${w.uvIndex}`,
+          tomorrow
+            ? `Tomorrow: High ${tomorrow.maxTempC}°C / Low ${tomorrow.minTempC}°C, ${tomorrow.rainChancePct}% rain chance`
+            : '',
+          'Consider whether these conditions may be stressing the plant.',
+        ].filter(Boolean).join('\n');
+
+        // Detect hardiness zone (non-blocking — doesn't delay response if slow)
+        hardinessZone = await detectHardinessZone(lat, lng);
+      } catch (err) {
+        console.warn('Weather fetch failed — continuing without weather context:', err.message);
+      }
+
+      // Store user's last location for weather alert scheduler (non-blocking)
+      if (uid) {
+        db.collection('users').doc(uid).set({
+          lastLat: lat,
+          lastLng: lng,
+          lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+          ...(hardinessZone ? { hardinessZone } : {}),
+        }, { merge: true }).catch((err) => console.error('User location update failed:', err));
+      }
+    }
+
+    // Step 3: Species cache lookup
     const cacheKey = speciesCacheKey(species.scientificName);
-    const cacheRef = db.collection("speciesCache").doc(cacheKey);
-    const cacheDoc = await cacheRef.get();
+    const cacheRef = db.collection('speciesCache').doc(cacheKey);
+    console.log(`Species cache lookup starting for ${cacheKey}...`);
+    let cacheDoc;
+    try {
+      cacheDoc = await Promise.race([
+        cacheRef.get(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore read timeout after 10s')), 10000)
+        ),
+      ]);
+      console.log(`Species cache lookup completed — exists: ${cacheDoc.exists}`);
+    } catch (err) {
+      console.error(`Species cache read failed: ${err.message} — treating as cache miss`);
+      cacheDoc = { exists: false };
+    }
 
     let claudeResult;
     if (cacheDoc.exists) {
-      // Cache HIT — disease detection only (~35–40% fewer Claude output tokens)
       console.log(`Species cache HIT for ${species.scientificName}`);
-      const diseaseResult = await diagnoseDisease(imageUrl, species, anthropicKey.value());
+      const diseaseResult = await diagnoseDisease(imageUrl, species, anthropicKey.value(), weatherContext);
       const { cachedAt: _cachedAt, ...speciesInfoData } = cacheDoc.data();
-      claudeResult = {
-        speciesInfo: speciesInfoData,
-        ...diseaseResult,
-      };
+      claudeResult = { speciesInfo: speciesInfoData, ...diseaseResult };
     } else {
-      // Cache MISS — full analysis, then write species info to cache
       console.log(`Species cache MISS for ${species.scientificName}`);
-      claudeResult = await diagnoseAndDescribe(imageUrl, species, anthropicKey.value());
-      // Non-blocking cache write — do not await, do not block the response
-      cacheRef
-        .set({
-          ...claudeResult.speciesInfo,
-          cachedAt: admin.firestore.FieldValue.serverTimestamp(),
-        })
-        .catch((err) => console.error("Species cache write failed:", err));
+      claudeResult = await diagnoseAndDescribe(imageUrl, species, anthropicKey.value(), weatherContext);
+      cacheRef.set({
+        ...claudeResult.speciesInfo,
+        cachedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch((err) => console.error('Species cache write failed:', err));
     }
 
-    // Step 3: Merge into final diagnosis object
+    // Step 4: Assemble final diagnosis
     const diagnosis = {
       plantSpecies: species.displayName,
       identificationCertainty: scoreToCertainty(species.speciesScore),
-      identificationLevel: species.speciesScore >= 0.15 ? "species" : "unknown",
+      identificationLevel: species.speciesScore >= 0.15 ? 'species' : 'unknown',
       ...claudeResult,
+      ...(weatherData ? { weatherAtScan: weatherData.current } : {}),
+      ...(hardinessZone != null ? { usHardinessZone: hardinessZone } : {}),
     };
 
     return { success: true, diagnosis };
