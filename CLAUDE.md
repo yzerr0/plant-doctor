@@ -19,34 +19,31 @@ Point. Shoot. Know everything about your plant.
 
 ---
 
-## Current Status — v0.2.0
+## Current Status — v0.3.0
 
-**Demo complete. Active app development starting at v0.3.**
+**v0.3 complete. Starting v0.4 (Weather & Environmental Intelligence).**
 
 Full spec: `docs/superpowers/specs/2026-03-25-plantdoctor-v03-to-v10-design.md`
 
-Completed (v0.2):
-- ✅ Image picker (gallery only — camera coming in v0.3)
+Completed (v0.3):
+- ✅ Image picker (gallery + live camera via ImageSource.camera)
 - ✅ Firebase Storage upload
 - ✅ Kindwise species ID via Cloud Function
 - ✅ Claude Vision disease detection with confirmed species context
 - ✅ Claude generates care grid, summary, treatment narrative
-- ✅ Full result screen (8 sections, tappable care cells, copy button)
+- ✅ Full result screen (8 sections, tappable care cells, copy button, colored certainty chip)
 - ✅ Firestore persistence + scan history journal
-- ✅ Swipe-to-delete diagnoses
-- ✅ Anonymous auth
+- ✅ Swipe-to-delete diagnoses (confirmDismiss pattern)
+- ✅ Google + Apple + Email + Guest auth (Firebase Auth)
+- ✅ Anonymous UID → real auth linking (linkWithCredential — no history lost)
+- ✅ Riverpod migration (authStateProvider, diagnosesProvider)
+- ✅ Global species info cache (speciesCache/{key} — ~35–40% fewer Claude tokens)
+- ✅ Firebase Security Rules locked (per-user paths + cache read-only from functions)
+- ✅ Claude 529 overload retry logic (withRetry — 3 attempts, exponential backoff)
 
 ---
 
 ## Roadmap
-
-### v0.3 — Core Upgrade (Auth, Camera & Foundation)
-- [ ] Live camera input (replace gallery-only)
-- [ ] Google + Apple + Email + Guest auth (Firebase Auth)
-- [ ] Anonymous UID → real auth linking (linkWithCredential — no history lost)
-- [ ] Global species info cache (Firestore `speciesCache/{scientificName}` — ~35–40% fewer Claude tokens)
-- [ ] Riverpod migration (replace all setState — do before adding more features)
-- [ ] Firebase Security Rules (per-user paths + cache read-only from functions)
 
 ### v0.4 — Weather & Environmental Intelligence ⭐ Killer differentiator
 - [ ] GPS location (geolocator, permission deferred to first use)
@@ -89,7 +86,7 @@ Completed (v0.2):
 | Layer | Technology |
 |---|---|
 | Frontend | Flutter (Dart) |
-| State | Riverpod (migrating from setState in v0.3) |
+| State | Riverpod |
 | Auth | Firebase Auth — Google + Apple + Email + Guest (Anonymous) |
 | Database | Cloud Firestore |
 | Image Storage | Firebase Storage |
@@ -186,14 +183,18 @@ lib/
 ├── screens/
 │   ├── home_screen.dart          # Dashboard + scan button + diagnoses list
 │   ├── loading_screen.dart       # Lottie animation
-│   ├── result_screen.dart        # Full diagnosis display (8 sections)
+│   ├── result_screen.dart        # Full diagnosis display (8 sections, tappable care cells, copy button)
+│   ├── auth_screen.dart          # Google / Apple / Email / Guest sign-in (v0.3)
+│   ├── email_auth_screen.dart    # Email + password sign-in / create account (v0.3)
 │   └── plant_profile_screen.dart # Per-plant history + timeline (v0.5)
 └── widgets/
     ├── severity_badge.dart       # Colored pill: healthy/low/medium/high
     └── issue_card.dart           # Expandable card per issue
 
 functions/
-├── index.js                      # diagnosePlant, getWeather, chatWithPlant, etc.
+├── index.js                      # diagnosePlant (withRetry for Claude 529), getWeather, chatWithPlant, etc.
+├── lib/
+│   └── utils.js                  # speciesCacheKey() — normalises scientific name to Firestore doc ID
 └── package.json
 
 docs/
@@ -241,3 +242,5 @@ See full rules in spec or `firestore.rules`.
 | `callable.call()` throws on Android emulator | Test on real device or deployed function |
 | RevenueCat webhook 401 | Verify `REVENUECAT_SECRET_KEY` matches what's set in RevenueCat dashboard |
 | Weather not loading | Check OPENWEATHER_API_KEY in Secret Manager; verify geolocator permission granted |
+| Claude 529 overloaded | `withRetry` handles automatically (3 attempts, 2s/4s backoff) — transient, no action needed |
+| Google Sign-In fails on device | Ensure SHA-1 fingerprint added to Firebase project (Project Settings → Android app) |

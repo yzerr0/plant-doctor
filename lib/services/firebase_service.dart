@@ -15,10 +15,19 @@ class FirebaseService {
         .set(result.toFirestore());
   }
 
-  static Stream<List<DiagnosisResult>> diagnosesStream() {
-    return _db
+  static Future<void> deleteDiagnosis(String id) async {
+    await _db
         .collection('users')
         .doc(_uid)
+        .collection('diagnoses')
+        .doc(id)
+        .delete();
+  }
+
+  static Stream<List<DiagnosisResult>> diagnosesStream(String uid) {
+    return _db
+        .collection('users')
+        .doc(uid)
         .collection('diagnoses')
         .orderBy('createdAt', descending: true)
         .limit(20)
