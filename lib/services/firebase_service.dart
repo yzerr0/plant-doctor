@@ -24,6 +24,16 @@ class FirebaseService {
         .delete();
   }
 
+  static Future<void> updateDiagnosisProfileId(
+      String diagnosisId, String profileId) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('diagnoses')
+        .doc(diagnosisId)
+        .update({'plantProfileId': profileId});
+  }
+
   static Stream<List<DiagnosisResult>> diagnosesStream(String uid) {
     return _db
         .collection('users')

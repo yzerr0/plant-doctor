@@ -14,7 +14,9 @@ class LocationService {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) return null;
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
 
     // On Android, bypass the Fused Location Provider (requires Google Play
     // Services) and use the raw Android LocationManager. This works on

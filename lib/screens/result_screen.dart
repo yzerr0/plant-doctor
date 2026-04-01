@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../theme.dart';
 import '../widgets/issue_card.dart';
 import 'auth_screen.dart';
+import 'plant_profile_screen.dart';
 
 class ResultScreen extends ConsumerWidget {
   final DiagnosisResult diagnosis;
@@ -14,15 +15,15 @@ class ResultScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AppTheme.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
-            backgroundColor: AppTheme.green,
-            foregroundColor: Colors.white,
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurface,
             actions: [
               IconButton(
                 icon: const Icon(Icons.content_copy_outlined),
@@ -44,10 +45,10 @@ class ResultScreen extends ConsumerWidget {
               background: CachedNetworkImage(
                 imageUrl: diagnosis.imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: AppTheme.lightGreen,
-                  child: const Center(child: Icon(Icons.local_florist, size: 60, color: AppTheme.green))),
-                errorWidget: (_, _, _) => Container(color: AppTheme.lightGreen,
-                  child: const Center(child: Icon(Icons.local_florist, size: 60, color: AppTheme.green))),
+                placeholder: (_, _) => Container(color: cs.primaryContainer,
+                  child: Center(child: Icon(Icons.local_florist, size: 60, color: cs.primary))),
+                errorWidget: (_, _, _) => Container(color: cs.primaryContainer,
+                  child: Center(child: Icon(Icons.local_florist, size: 60, color: cs.primary))),
               ),
             ),
           ),
@@ -56,13 +57,14 @@ class ResultScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _signInBanner(context, ref),
-                _speciesHeader(),
+                _speciesHeader(context),
                 _severityBanner(),
-                _summary(),
+                _summary(context),
                 _careGrid(context),
-                _funFact(),
-                _issuesSection(),
-                _followUp(),
+                _funFact(context),
+                _issuesSection(context),
+                _followUp(context),
+                _viewHistoryLink(context),
                 const SizedBox(height: 32),
               ],
             ),
@@ -76,15 +78,16 @@ class ResultScreen extends ConsumerWidget {
     final isAnonymous =
         ref.watch(authStateProvider).valueOrNull?.isAnonymous ?? true;
     if (!isAnonymous) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: AppTheme.lightGreen,
+      color: cs.primaryContainer,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
               'Sign in to save your history across devices',
-              style: TextStyle(fontSize: 13),
+              style: TextStyle(fontSize: 13, color: cs.onPrimaryContainer),
             ),
           ),
           TextButton(
@@ -92,19 +95,26 @@ class ResultScreen extends ConsumerWidget {
               context,
               MaterialPageRoute(builder: (_) => const AuthScreen()),
             ),
-            child: const Text('Sign In',
+            child: Text('Sign In',
                 style: TextStyle(
-                    color: AppTheme.green, fontWeight: FontWeight.w600)),
+                    color: cs.primary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
   }
 
-  Widget _speciesHeader() {
+  String get _commonName => diagnosis.plantSpecies.split('(')[0].trim();
+
+  String get _scientificName {
     final parts = diagnosis.plantSpecies.split('(');
-    final commonName = parts[0].trim();
-    final scientific = parts.length > 1 ? parts[1].replaceAll(')', '').trim() : '';
+    return parts.length > 1 ? parts[1].replaceAll(')', '').trim() : '';
+  }
+
+  Widget _speciesHeader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final commonName = _commonName;
+    final scientific = _scientificName;
     final (chipLabel, chipColor, chipText) = switch (diagnosis.identificationCertainty) {
       'certain'   => ('✓ Certain',   AppTheme.green,           Colors.white),
       'likely'    => ('~ Likely',    const Color(0xFFF59E0B),  Colors.white),
@@ -112,7 +122,7 @@ class ResultScreen extends ConsumerWidget {
     };
 
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +133,7 @@ class ResultScreen extends ConsumerWidget {
               children: [
                 Text(commonName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                 if (scientific.isNotEmpty)
-                  Text(scientific, style: const TextStyle(fontSize: 13, color: Colors.grey, fontStyle: FontStyle.italic)),
+                  Text(scientific, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontStyle: FontStyle.italic)),
               ],
             ),
           ),
@@ -164,8 +174,8 @@ class ResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _summary() => Container(
-    color: Colors.white,
+  Widget _summary(BuildContext context) => Container(
+    color: Theme.of(context).colorScheme.surface,
     margin: const EdgeInsets.only(top: 6),
     padding: const EdgeInsets.all(16),
     child: Text(diagnosis.summary, style: const TextStyle(fontSize: 14, height: 1.6)),
@@ -181,18 +191,19 @@ class ResultScreen extends ConsumerWidget {
       ('🟢', 'Difficulty', s.difficulty),
       ('⚠️', 'Toxicity', s.toxicity),
     ];
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: cs.surface,
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('CARE INFO',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
+          Text('CARE INFO',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 1.2)),
           const SizedBox(height: 4),
-          const Text('Tap any cell for full details',
-            style: TextStyle(fontSize: 11, color: Colors.grey)),
+          Text('Tap any cell for full details',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
           const SizedBox(height: 10),
           GridView.count(
             crossAxisCount: 3,
@@ -210,8 +221,11 @@ class ResultScreen extends ConsumerWidget {
 
   Widget _careCell(BuildContext context, String emoji, String label, String value) {
     final isToxic = label == 'Toxicity' && value.toLowerCase().contains('toxic');
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: isToxic ? const Color(0xFFFFEBEE) : AppTheme.background,
+      color: isToxic
+          ? const Color(0xFFFFEBEE)
+          : cs.surfaceVariant,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -224,7 +238,10 @@ class ResultScreen extends ConsumerWidget {
               Text(emoji, style: const TextStyle(fontSize: 18)),
               const SizedBox(height: 4),
               Text(value.isEmpty ? '—' : value,
-                style: TextStyle(fontSize: 10, color: isToxic ? Colors.red[800] : Colors.black87, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isToxic ? Colors.red[800] : cs.onSurface,
+                  fontWeight: FontWeight.w500),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
@@ -240,7 +257,7 @@ class ResultScreen extends ConsumerWidget {
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
+      builder: (sheetCtx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
           child: Column(
@@ -252,9 +269,9 @@ class ResultScreen extends ConsumerWidget {
                   Text(emoji, style: const TextStyle(fontSize: 28)),
                   const SizedBox(width: 12),
                   Text(label.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700,
-                      color: Colors.grey, letterSpacing: 1.2)),
+                      color: Theme.of(sheetCtx).colorScheme.onSurfaceVariant, letterSpacing: 1.2)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -268,32 +285,36 @@ class ResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _funFact() => Container(
-    margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppTheme.lightGreen,
-      borderRadius: BorderRadius.circular(12)),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('🍃', style: TextStyle(fontSize: 18)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(diagnosis.speciesInfo.funFact,
-          style: const TextStyle(fontSize: 13, color: AppTheme.green, height: 1.4))),
-      ],
-    ),
-  );
+  Widget _funFact(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('🍃', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(diagnosis.speciesInfo.funFact,
+            style: TextStyle(fontSize: 13, color: cs.onPrimaryContainer, height: 1.4))),
+        ],
+      ),
+    );
+  }
 
-  Widget _issuesSection() {
+  Widget _issuesSection(BuildContext context) {
     if (diagnosis.issues.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('ISSUES DETECTED',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
+          Text('ISSUES DETECTED',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 1.2)),
           const SizedBox(height: 8),
           ...diagnosis.issues.map((issue) => IssueCard(issue: issue)),
         ],
@@ -301,15 +322,36 @@ class ResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _followUp() => Padding(
+  Widget _followUp(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text('🗓 ', style: TextStyle(fontSize: 16)),
         Text('Check again in ${diagnosis.followUpIn} days',
-          style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],
     ),
   );
+
+  Widget _viewHistoryLink(BuildContext context) {
+    if (_scientificName.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Center(
+        child: TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SpeciesHistoryScreen(
+                scientificName: _scientificName,
+                commonName: _commonName,
+              ),
+            ),
+          ),
+          child: Text('View $_commonName scan history →'),
+        ),
+      ),
+    );
+  }
 }

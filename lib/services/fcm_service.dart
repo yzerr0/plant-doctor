@@ -12,7 +12,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class FcmService {
-  static final _localNotifications = FlutterLocalNotificationsPlugin();
+  static final notifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     // Register background handler before anything else
@@ -32,12 +32,12 @@ class FcmService {
       description: 'Frost, heat wave, and watering alerts for your plants.',
       importance: Importance.high,
     );
-    await _localNotifications
+    await notifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
-    await _localNotifications.initialize(
+    await notifications.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(),
@@ -49,7 +49,7 @@ class FcmService {
       final notification = message.notification;
       final android = message.notification?.android;
       if (notification != null && android != null) {
-        _localNotifications.show(
+        notifications.show(
           notification.hashCode,
           notification.title,
           notification.body,

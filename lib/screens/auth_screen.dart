@@ -10,11 +10,9 @@ class AuthScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.green,
-        foregroundColor: Colors.white,
         title: const Text('Sign In'),
         elevation: 0,
       ),
@@ -25,7 +23,7 @@ class AuthScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.local_florist, size: 72, color: AppTheme.green),
+              Icon(Icons.local_florist, size: 72, color: cs.primary),
               const SizedBox(height: 16),
               const Text(
                 'Save your plant history\nacross devices',
@@ -58,8 +56,8 @@ class AuthScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Continue as Guest',
-                    style: TextStyle(color: Colors.grey)),
+                child: Text('Continue as Guest',
+                    style: TextStyle(color: cs.onSurfaceVariant)),
               ),
             ],
           ),

@@ -184,17 +184,6 @@ void main() {
       expect(result.weatherAtScan?.condition, 'rainy');
     });
 
-    test('plantProfileId is null when absent', () {
-      final result = DiagnosisResult.fromFirestore('id7', baseStored);
-      expect(result.plantProfileId, isNull);
-    });
-
-    test('plantProfileId is parsed when present', () {
-      final stored = Map<String, dynamic>.from(baseStored)
-        ..['plantProfileId'] = 'plant123';
-      final result = DiagnosisResult.fromFirestore('id8', stored);
-      expect(result.plantProfileId, 'plant123');
-    });
   });
 
   group('StorageService.imagePath', () {

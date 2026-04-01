@@ -92,7 +92,6 @@ class DiagnosisResult {
   final List<PlantIssue> issues;
   final DateTime createdAt;
   final WeatherSnapshot? weatherAtScan;
-  final String? plantProfileId;
   final String? usHardinessZone;
 
   const DiagnosisResult({
@@ -101,7 +100,7 @@ class DiagnosisResult {
     required this.identificationCertainty, required this.identificationLevel,
     required this.followUpIn, required this.speciesInfo,
     required this.issues, required this.createdAt,
-    this.weatherAtScan, this.plantProfileId, this.usHardinessZone,
+    this.weatherAtScan, this.usHardinessZone,
   });
 
   factory DiagnosisResult.fromJson(
@@ -142,7 +141,6 @@ class DiagnosisResult {
           .toList(),
       createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
       weatherAtScan: weatherJson != null ? WeatherSnapshot.fromJson(weatherJson) : null,
-      plantProfileId: j['plantProfileId'] as String?,
       usHardinessZone: j['usHardinessZone'] as String?,
     );
   }
@@ -159,7 +157,6 @@ class DiagnosisResult {
     'speciesInfo': speciesInfo.toMap(),
     'issues': issues.map((i) => i.toMap()).toList(),
     if (weatherAtScan != null) 'weatherAtScan': weatherAtScan!.toJson(),
-    if (plantProfileId != null) 'plantProfileId': plantProfileId,
     if (usHardinessZone != null) 'usHardinessZone': usHardinessZone,
   };
 }
