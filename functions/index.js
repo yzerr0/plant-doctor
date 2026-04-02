@@ -9,80 +9,81 @@ admin.initializeApp();
 const db = admin.firestore();
 
 const anthropicKey = defineSecret("ANTHROPIC_API_KEY");
-const kindwiseKey = defineSecret("KINDWISE_API_KEY");
+const plantnetKey = defineSecret("PLANTNET_API_KEY");
 const openWeatherKey = defineSecret("OPENWEATHER_API_KEY");
 
-// ─── Kindwise plant.id — species identification only ─────────────────────────
+// ─── Pl@ntNet — species identification ───────────────────────────────────────
 
 async function identifySpecies(imageUrl, apiKey) {
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error(`Image download failed: ${imgRes.status}`);
   const imgBuffer = await imgRes.arrayBuffer();
-  const base64 = Buffer.from(imgBuffer).toString("base64");
 
-  console.log("Calling Kindwise plant.id for species ID...");
+  console.log("Calling Pl@ntNet for species ID...");
 
-  const res = await fetch("https://plant.id/api/v3/identification", {
-    method: "POST",
-    headers: {
-      "Api-Key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      images: [`data:image/jpeg;base64,${base64}`],
-    }),
-  });
+  const formData = new FormData();
+  formData.append("images", new Blob([imgBuffer], { type: "image/jpeg" }), "plant.jpg");
 
-  const responseText = await res.text();
-  console.log(`Kindwise status: ${res.status}`);
-  console.log(`Kindwise response: ${responseText.substring(0, 500)}`);
+  const url =
+    `https://my-api.plantnet.org/v2/identify/all` +
+    `?api-key=${apiKey}&nb-results=5&lang=en&include-related-images=false`;
 
-  if (!res.ok) {
-    throw new HttpsError(
-      "internal",
-      `Kindwise API error ${res.status}: ${responseText}`
-    );
-  }
+  const res = await fetch(url, { method: "POST", body: formData });
 
-  return JSON.parse(responseText);
-}
+  console.log(`PlantNet status: ${res.status}`);
 
-function parseSpeciesResult(data) {
-  const result = data.result;
-
-  if (!result?.is_plant?.binary) {
+  // 404 = no plant detected (PlantNet's convention)
+  if (res.status === 404) {
     throw new HttpsError("invalid-argument", "No plant detected in this image");
   }
 
-  const topSpecies = result.classification?.suggestions?.[0];
-  const scientificName = topSpecies?.name ?? "Unknown Plant";
-  const commonNames = topSpecies?.details?.common_names ?? [];
+  const responseText = await res.text();
+  if (!res.ok) {
+    throw new HttpsError("internal", `PlantNet API error ${res.status}: ${responseText}`);
+  }
+
+  const data = JSON.parse(responseText);
+  console.log(
+    `PlantNet top 3:`,
+    (data.results ?? [])
+      .slice(0, 3)
+      .map((r) => `${r.species?.scientificNameWithoutAuthor} (${(r.score * 100).toFixed(0)}%)`)
+      .join(", ")
+  );
+  return data;
+}
+
+function parseSpeciesResult(data) {
+  const results = data.results ?? [];
+  if (!results.length) {
+    throw new HttpsError("invalid-argument", "No plant detected in this image");
+  }
+
+  const top = results[0];
+  const speciesScore = top.score ?? 0;
+  const scientificName =
+    top.species?.scientificNameWithoutAuthor ??
+    top.species?.scientificName ??
+    "Unknown Plant";
+  const commonNames = top.species?.commonNames ?? [];
   const commonName = commonNames[0] ?? scientificName;
-  const speciesScore = topSpecies?.probability ?? 0;
 
   const displayName =
-    commonName && commonName !== scientificName
+    commonName && commonName.toLowerCase() !== scientificName.toLowerCase()
       ? `${commonName} (${scientificName})`
       : scientificName;
 
   const genus = scientificName.split(" ")[0] ?? "";
 
-  console.log(
-    `Identified: ${displayName} — score: ${(speciesScore * 100).toFixed(0)}%`
-  );
-  console.log(`Top 3 suggestions:`,
-    result.classification?.suggestions
-      ?.slice(0, 3)
-      .map((s) => `${s.name} (${(s.probability * 100).toFixed(0)}%)`)
-      .join(", ")
-  );
+  console.log(`Identified: ${displayName} — score: ${(speciesScore * 100).toFixed(0)}%`);
 
   return { displayName, scientificName, commonName, genus, speciesScore };
 }
 
+// PlantNet scores run lower than Kindwise — recalibrate thresholds accordingly.
 function scoreToCertainty(score) {
-  if (score >= 0.70) return "certain";
-  if (score >= 0.35) return "likely";
+  if (score >= 0.40) return "certain";
+  if (score >= 0.10) return "likely";
   return "uncertain";
 }
 
@@ -470,17 +471,81 @@ async function detectHardinessZone(lat, lng) {
   }
 }
 
+// ─── CNN routing (v0.7) ───────────────────────────────────────────────────────
+//
+// PlantVillage dataset covers 14 crop species / 38 disease classes.
+// When the CNN Cloud Run service is deployed, set CNN_CLOUD_RUN_URL in
+// environment config and the router below will call it automatically.
+// Until then (CNN_CLOUD_RUN_URL absent), all scans fall back to Claude Vision.
+//
+// Fallback triggers:
+//   • CNN_CLOUD_RUN_URL not set (pre-deployment)
+//   • Species not in PlantVillage scope
+//   • CNN confidence < 0.60
+
+const PLANTVILLAGE_GENERA = new Set([
+  'Solanum',        // tomato, potato
+  'Lycopersicon',   // tomato (older taxonomy)
+  'Capsicum',       // pepper
+  'Zea',            // corn / maize
+  'Gossypium',      // cotton (grape)
+  'Vitis',          // grape
+  'Malus',          // apple
+  'Prunus',         // cherry, peach
+  'Pyrus',          // pear (strawberry)
+  'Fragaria',       // strawberry
+  'Citrus',         // orange, lemon
+  'Cucumis',        // cucumber, squash
+  'Cucurbita',      // squash, pumpkin
+  'Soybean',        // soybean
+]);
+
+/**
+ * Attempt CNN disease classification via Cloud Run.
+ * Returns { diseaseClass, confidence } or null if CNN unavailable / out of scope.
+ */
+async function tryClassifyWithCNN(imageUrl, scientificName) {
+  const cnnUrl = process.env.CNN_CLOUD_RUN_URL;
+  if (!cnnUrl) return null; // CNN not yet deployed
+
+  const genus = (scientificName ?? '').split(' ')[0];
+  if (!PLANTVILLAGE_GENERA.has(genus)) {
+    console.log(`CNN skip — ${genus} not in PlantVillage scope`);
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${cnnUrl}/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw new Error(`CNN responded ${res.status}`);
+    const { diseaseClass, confidence } = await res.json();
+    if (confidence < 0.60) {
+      console.log(`CNN low confidence (${confidence.toFixed(2)}) — falling back to Claude`);
+      return null;
+    }
+    console.log(`CNN result: ${diseaseClass} (confidence ${confidence.toFixed(2)})`);
+    return { diseaseClass, confidence };
+  } catch (err) {
+    console.warn(`CNN call failed — falling back to Claude: ${err.message}`);
+    return null;
+  }
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 exports.diagnosePlant = onCall(
-  { secrets: [anthropicKey, kindwiseKey, openWeatherKey], timeoutSeconds: 120, minInstances: 1 },
+  { secrets: [anthropicKey, plantnetKey, openWeatherKey], timeoutSeconds: 120, minInstances: 1 },
   async (request) => {
     const { imageUrl, lat, lng } = request.data;
     const uid = request.auth?.uid;
 
-    // Step 1: Kindwise — species identification
-    const kindwiseRaw = await identifySpecies(imageUrl, kindwiseKey.value());
-    const species = parseSpeciesResult(kindwiseRaw);
+    // Step 1: Pl@ntNet — species identification
+    const plantnetRaw = await identifySpecies(imageUrl, plantnetKey.value());
+    const species = parseSpeciesResult(plantnetRaw);
 
     // Step 2: Weather (optional — only if lat/lng provided)
     let weatherData = null;
@@ -518,6 +583,9 @@ exports.diagnosePlant = onCall(
       }
     }
 
+    // Step 2b: CNN disease classification (v0.7 — in-scope crop species only)
+    const cnnResult = await tryClassifyWithCNN(imageUrl, species.scientificName);
+
     // Step 3: Species cache lookup
     const cacheKey = speciesCacheKey(species.scientificName);
     const cacheRef = db.collection('speciesCache').doc(cacheKey);
@@ -536,15 +604,21 @@ exports.diagnosePlant = onCall(
       cacheDoc = { exists: false };
     }
 
+    // CNN context injected into Claude prompt when available (v0.7).
+    // Claude generates narrative only — CNN already did classification.
+    const cnnContext = cnnResult
+      ? `\nCNN PRE-CLASSIFICATION: ${cnnResult.diseaseClass} (confidence ${(cnnResult.confidence * 100).toFixed(0)}%). Confirm visually and generate detailed narrative.\n`
+      : '';
+
     let claudeResult;
     if (cacheDoc.exists) {
       console.log(`Species cache HIT for ${species.scientificName}`);
-      const diseaseResult = await diagnoseDisease(imageUrl, species, anthropicKey.value(), weatherContext);
+      const diseaseResult = await diagnoseDisease(imageUrl, species, anthropicKey.value(), weatherContext + cnnContext);
       const { cachedAt: _cachedAt, ...speciesInfoData } = cacheDoc.data();
       claudeResult = { speciesInfo: speciesInfoData, ...diseaseResult };
     } else {
       console.log(`Species cache MISS for ${species.scientificName}`);
-      claudeResult = await diagnoseAndDescribe(imageUrl, species, anthropicKey.value(), weatherContext);
+      claudeResult = await diagnoseAndDescribe(imageUrl, species, anthropicKey.value(), weatherContext + cnnContext);
       cacheRef.set({
         ...claudeResult.speciesInfo,
         cachedAt: admin.firestore.FieldValue.serverTimestamp(),

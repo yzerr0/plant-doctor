@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/diagnosis_model.dart';
 import '../models/weather_model.dart';
 import '../providers/auth_provider.dart';
+import '../providers/connectivity_provider.dart';
 import '../providers/diagnoses_provider.dart';
 import '../providers/species_provider.dart';
 import '../providers/weather_provider.dart';
@@ -259,78 +260,84 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
   String _severityFilter = 'all';
 
   Future<void> _showSearchFilter() async {
+    if (!mounted) return;
     final controller = TextEditingController(text: _searchQuery);
     String filter = _severityFilter;
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModal) => Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                autofocus: true,
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: 'Search plants...',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+    try {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setModal) => Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Search plants...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children:
-                      ['all', 'healthy', 'low', 'medium', 'high'].map((f) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(f == 'all'
-                            ? 'All'
-                            : f[0].toUpperCase() + f.substring(1)),
-                        selected: filter == f,
-                        onSelected: (_) => setModal(() => filter = f),
-                      ),
-                    );
-                  }).toList(),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children:
+                        ['all', 'healthy', 'low', 'medium', 'high'].map((f) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(f == 'all'
+                              ? 'All'
+                              : f[0].toUpperCase() + f.substring(1)),
+                          selected: filter == f,
+                          onSelected: (_) => setModal(() => filter = f),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.green,
-                      foregroundColor: Colors.white),
-                  onPressed: () {
-                    setState(() {
-                      _searchQuery = controller.text;
-                      _severityFilter = filter;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('Apply'),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.green,
+                        foregroundColor: Colors.white),
+                    onPressed: () {
+                      final text = controller.text;
+                      Navigator.pop(ctx);
+                      if (mounted) {
+                        setState(() {
+                          _searchQuery = text;
+                          _severityFilter = filter;
+                        });
+                      }
+                    },
+                    child: const Text('Apply'),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    controller.dispose();
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 
   @override
@@ -385,6 +392,7 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: Column(
               children: [
+                _OfflineBanner(ref: ref),
                 const _WateringBanner(),
                 const SizedBox(height: 12),
                 Row(
@@ -417,15 +425,16 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
           data: (_) => filtered.isEmpty
               ? SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      hasFilter
-                          ? 'No results match your filter'
-                          : 'No plants scanned yet',
-                      style: const TextStyle(
-                          color: Colors.grey, fontSize: 15),
-                    ),
-                  ),
+                  child: hasFilter
+                      ? Center(
+                          child: Text(
+                            'No results match your filter',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontSize: 15),
+                          ),
+                        )
+                      : _EmptyState(),
                 )
               : SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -494,7 +503,7 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
 // ─── Green hero (greeting + weather) ─────────────────────────────────────────
 
 class _GreenHero extends ConsumerWidget {
-  _GreenHero();
+  const _GreenHero();
 
   LinearGradient _heroGradient(WeatherData? weather, bool isDark) {
     if (weather != null && weather.current.tempC <= 2.0) {
@@ -876,6 +885,100 @@ class _BannerStyle {
     required this.subtitleColor,
     required this.icon,
   });
+}
+
+// ─── Offline banner ──────────────────────────────────────────────────────────
+
+class _OfflineBanner extends StatelessWidget {
+  final WidgetRef ref;
+  const _OfflineBanner({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    if (isOnline) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D1A0A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: Colors.orange.shade700, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off_rounded, size: 16, color: Colors.orange.shade300),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Offline — showing cached scans',
+              style: TextStyle(fontSize: 13, color: Colors.orange.shade200),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty state ─────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.camera_alt_rounded, size: 38, color: cs.primary),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Scan your first plant',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Point your camera at any plant to get an instant species ID, health diagnosis, and personalised care guide.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.arrow_downward_rounded, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Tap the camera button below',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Diagnosis card with real thumbnail ──────────────────────────────────────

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/diagnosis_model.dart';
+import 'local_store_service.dart';
 
 class FirebaseService {
   static final _db = FirebaseFirestore.instance;
@@ -15,13 +16,26 @@ class FirebaseService {
         .set(result.toFirestore());
   }
 
+  /// Deletes a diagnosis. If offline, removes it from the local Hive cache
+  /// immediately and queues the Firestore delete for the next online session.
   static Future<void> deleteDiagnosis(String id) async {
-    await _db
-        .collection('users')
-        .doc(_uid)
-        .collection('diagnoses')
-        .doc(id)
-        .delete();
+    final uid = _uid;
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('diagnoses')
+          .doc(id)
+          .delete();
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable' || e.code == 'network-request-failed') {
+        // Offline — remove optimistically from cache and queue for later.
+        await LocalStoreService.removeFromCache(uid, id);
+        await LocalStoreService.queueDelete(uid, id);
+        return;
+      }
+      rethrow;
+    }
   }
 
   static Future<void> updateDiagnosisProfileId(

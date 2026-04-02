@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../theme.dart';
 import 'email_auth_screen.dart';
 
 class AuthScreen extends ConsumerWidget {

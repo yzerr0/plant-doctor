@@ -25,9 +25,8 @@ class AppTheme {
   );
 
   static const darkColorScheme = ColorScheme.dark(
-    background:           Color(0xFF1A1A2E),
     surface:              Color(0xFF252540),
-    surfaceVariant:       Color(0xFF1E2D20),
+    surfaceContainerHighest:       Color(0xFF1E2D20),
     primary:              Color(0xFF2D7A4F),
     onPrimary:            Colors.white,
     primaryContainer:     Color(0xFF1E2D20),

@@ -222,10 +222,11 @@ class ResultScreen extends ConsumerWidget {
   Widget _careCell(BuildContext context, String emoji, String label, String value) {
     final isToxic = label == 'Toxicity' && value.toLowerCase().contains('toxic');
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final toxicBg = isDark ? const Color(0xFF2D1515) : const Color(0xFFFFEBEE);
+    final toxicText = isDark ? const Color(0xFFEF9A9A) : Colors.red[800]!;
     return Material(
-      color: isToxic
-          ? const Color(0xFFFFEBEE)
-          : cs.surfaceVariant,
+      color: isToxic ? toxicBg : cs.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -240,7 +241,7 @@ class ResultScreen extends ConsumerWidget {
               Text(value.isEmpty ? '—' : value,
                 style: TextStyle(
                   fontSize: 10,
-                  color: isToxic ? Colors.red[800] : cs.onSurface,
+                  color: isToxic ? toxicText : cs.onSurface,
                   fontWeight: FontWeight.w500),
                 textAlign: TextAlign.center,
                 maxLines: 2,

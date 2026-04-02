@@ -19,37 +19,34 @@ Point. Shoot. Know everything about your plant.
 
 ---
 
-## Current Status — v0.4.0
+## Current Status — v0.7 (in progress)
 
-**v0.4 complete. Starting v0.5 (Plant Profiles, Journal & Polish).**
+**v0.5 complete. v0.6 skipped (monetisation deferred). Working on v0.7 (offline mode + CNN routing).**
 
 Full spec: `docs/superpowers/specs/2026-03-25-plantdoctor-v03-to-v10-design.md`
 
-Completed (v0.3):
-- ✅ Image picker (gallery + live camera via ImageSource.camera)
-- ✅ Firebase Storage upload
-- ✅ Kindwise species ID via Cloud Function
-- ✅ Claude Vision disease detection with confirmed species context
-- ✅ Claude generates care grid, summary, treatment narrative
-- ✅ Full result screen (8 sections, tappable care cells, copy button, colored certainty chip)
-- ✅ Firestore persistence + scan history journal
-- ✅ Swipe-to-delete diagnoses (confirmDismiss pattern)
-- ✅ Google + Apple + Email + Guest auth (Firebase Auth)
-- ✅ Anonymous UID → real auth linking (linkWithCredential — no history lost)
-- ✅ Riverpod migration (authStateProvider, diagnosesProvider)
-- ✅ Global species info cache (speciesCache/{key} — ~35–40% fewer Claude tokens)
-- ✅ Firebase Security Rules locked (per-user paths + cache read-only from functions)
-- ✅ Claude 529 overload retry logic (withRetry — 3 attempts, exponential backoff)
+Completed (v0.3–v0.4): see git log — all items shipped.
 
-Completed (v0.4):
-- ✅ GPS location (geolocator, AndroidSettings forceLocationManager for emulator compat)
-- ✅ `getWeather` Cloud Function (OpenWeatherMap 2.5, 30-min Firestore cache per grid cell)
-- ✅ Local weather panel on home screen (WeatherPanel widget, 4 states)
-- ✅ Weather-contextualised diagnosis (weather + hardiness zone sent to Claude at scan time)
-- ✅ Frost & heat wave push alerts (FCM + sendWeatherAlerts scheduled function)
-- ✅ Rain-skip watering alerts
-- ✅ USDA hardiness zone detection (phzmapi.org, stored on users/{uid})
-- ✅ Promise.race timeout on all Firestore admin SDK reads (prevents cold-start hangs)
+Completed (v0.5):
+- ✅ Auto species grouping — MyPlantsScreen (replaces manual profiles)
+- ✅ SpeciesHistoryScreen — health timeline + watering card per species
+- ✅ WateringService + WateringPrefs (Firestore users/{uid}/wateringPrefs/{key})
+- ✅ Watering urgency banner on home screen (overdue / due today / due soon / rain skip / frost)
+- ✅ Rescan reminders (flutter_local_notifications — scheduled after each scan)
+- ✅ Dashboard redesign — gradient hero, weather card, greeting, bottom nav
+- ✅ Search & filter history (client-side, severity chips)
+- ✅ Dark mode (ThemeMode.system, Deep Space palette)
+- ✅ Empty state prompt on home screen
+
+v0.6 — Skipped (monetisation deferred post-launch).
+
+Completed (v0.7 — in progress):
+- ✅ Offline mode — Hive cache (LocalStoreService) mirrors diagnoses locally
+- ✅ diagnosesProvider yields Hive cache first, then live Firestore stream
+- ✅ Offline delete queue — failed deletes queued in Hive, replayed on reconnect
+- ✅ connectivityProvider + offline banner on home screen
+- ✅ CNN routing stub in diagnosePlant — PlantVillage scope check + Cloud Run hook
+  - Set CNN_CLOUD_RUN_URL env var when Cloud Run service is deployed to activate
 
 ---
 
@@ -64,20 +61,19 @@ Completed (v0.4):
 - ✅ Rain-skip watering alerts
 - ✅ USDA hardiness zone detection
 
-### v0.5 — Plant Profiles, Journal & Polish
-- [ ] Named plant profiles (Firestore `users/{uid}/plants/`)
-- [ ] Health timeline chart per plant
-- [ ] Plant notes (free-text per plant)
-- [ ] Watering + rescan reminders (flutter_local_notifications, rain-adjusted)
-- [ ] Dashboard home redesign
-- [ ] Search & filter history
-- [ ] Dark mode (ThemeMode.system)
+### v0.5 — Plant Profiles, Journal & Polish ✅ Complete
+- ✅ Auto species grouping (replaces manual profiles)
+- ✅ Health timeline chart + watering card per species
+- ✅ Watering + rescan reminders
+- ✅ Dashboard home redesign + dark mode
+- ✅ Search & filter history
 
-### v0.6 — Monetisation + Admin Intelligence
-- [ ] Freemium: 15 free scans/month (server-side inline reset — no scheduled function)
-- [ ] Premium $3.99/month via RevenueCat
-- [ ] Premium features: Plant Chat, Before/After Compare, Disease Progression AI, Seasonal Calendar, Share/Export
-- [ ] Admin BI dashboard (Retool v1 → custom if outgrown)
+### v0.6 — Monetisation + Admin Intelligence ⏭ Skipped (deferred post-launch)
+
+### v0.7 — CNN Deployment + Offline Mode (in progress)
+- ✅ Offline mode (Hive cache + pending-delete queue)
+- ✅ CNN routing stub (PlantVillage scope + Cloud Run hook — activate via CNN_CLOUD_RUN_URL)
+- [ ] PlantVillage CNN model training + Cloud Run deployment (parallel research track)
 
 ### v0.7 — CNN Deployment (parallel track from v0.4)
 - [ ] PlantVillage CNN on Cloud Run (disease detection for 14 crop species / 38 classes)

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import '../theme.dart';
 
 class LoadingScreen extends StatelessWidget {
   const LoadingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AppTheme.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -19,18 +18,18 @@ class LoadingScreen extends StatelessWidget {
               height: 200,
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Analyzing your plant...',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.green,
+                color: cs.primary,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'This takes about 10 seconds',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
             ),
           ],
         ),
