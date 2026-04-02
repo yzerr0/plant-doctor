@@ -58,6 +58,11 @@ app.*.map.json
 android/local.properties
 android/.gradle/
 
+# Android release signing — never commit keystore or credentials
+android/key.properties
+*.jks
+*.keystore
+
 # iOS dependencies (restored via pod install)
 ios/Pods/
 ios/.symlinks/

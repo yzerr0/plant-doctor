@@ -39,6 +39,17 @@ class LocationService {
     }
   }
 
+  /// Requests location permission if not yet granted.
+  /// Safe to call even if already granted — will not show dialog again.
+  /// Handles deniedForever silently.
+  static Future<void> requestPermission() async {
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      await Geolocator.requestPermission();
+    }
+    // deniedForever — OS won't show dialog, nothing to do
+  }
+
   /// Returns true only if permission is already granted — no dialog shown.
   static Future<bool> hasPermission() async {
     final permission = await Geolocator.checkPermission();

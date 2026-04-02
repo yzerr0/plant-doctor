@@ -7,7 +7,7 @@
 ## What This App Does
 
 **PlantDoctor** — photograph any plant, get back:
-- Species identification + confidence (Kindwise plant.id API — permanent, best accuracy for houseplants/cultivars)
+- Species identification + confidence (Pl@ntNet API — best accuracy for houseplants/cultivars)
 - Health diagnosis — what's wrong, severity, cause (Claude Vision with confirmed species context)
 - Weather-contextualised care advice — diagnosis factors in your real local weather
 - Care guide — light, water, humidity, temp, difficulty, toxicity
@@ -19,9 +19,9 @@ Point. Shoot. Know everything about your plant.
 
 ---
 
-## Current Status — v0.7 (in progress)
+## Current Status — v1.0 (in progress)
 
-**v0.5 complete. v0.6 skipped (monetisation deferred). Working on v0.7 (offline mode + CNN routing).**
+**v0.7 complete. v0.6 skipped (monetisation deferred). Working on v1.0 (onboarding, Play Store).**
 
 Full spec: `docs/superpowers/specs/2026-03-25-plantdoctor-v03-to-v10-design.md`
 
@@ -40,13 +40,17 @@ Completed (v0.5):
 
 v0.6 — Skipped (monetisation deferred post-launch).
 
-Completed (v0.7 — in progress):
+Completed (v0.7):
 - ✅ Offline mode — Hive cache (LocalStoreService) mirrors diagnoses locally
 - ✅ diagnosesProvider yields Hive cache first, then live Firestore stream
 - ✅ Offline delete queue — failed deletes queued in Hive, replayed on reconnect
 - ✅ connectivityProvider + offline banner on home screen
 - ✅ CNN routing stub in diagnosePlant — PlantVillage scope check + Cloud Run hook
   - Set CNN_CLOUD_RUN_URL env var when Cloud Run service is deployed to activate
+
+Completed (v1.0 — in progress):
+- ✅ Onboarding flow (3 screens, first-launch only, Hive flag hasSeenOnboarding)
+- ✅ Play Store prep — app ID `com.plantdoctor.app`, release signing config, privacy policy, signed AAB
 
 ---
 
@@ -70,20 +74,16 @@ Completed (v0.7 — in progress):
 
 ### v0.6 — Monetisation + Admin Intelligence ⏭ Skipped (deferred post-launch)
 
-### v0.7 — CNN Deployment + Offline Mode (in progress)
+### v0.7 — CNN Deployment + Offline Mode ✅ Complete
 - ✅ Offline mode (Hive cache + pending-delete queue)
 - ✅ CNN routing stub (PlantVillage scope + Cloud Run hook — activate via CNN_CLOUD_RUN_URL)
-- [ ] PlantVillage CNN model training + Cloud Run deployment (parallel research track)
-
-### v0.7 — CNN Deployment (parallel track from v0.4)
-- [ ] PlantVillage CNN on Cloud Run (disease detection for 14 crop species / 38 classes)
-- [ ] Graceful fallback to Claude Vision for out-of-scope species
-- [ ] Offline mode (Hive full cache)
+- [ ] PlantVillage CNN model training + Cloud Run deployment (parallel research track — deferred)
 
 ### v1.0 — Launch
-- [ ] Onboarding flow (location permission deferred — not on first screen)
-- [ ] iOS full support (Info.plist, APNs, App Store metadata)
-- [ ] Play Store submission
+- ✅ Onboarding flow (3 screens: welcome → location → notifications, first-launch only)
+- ✅ Play Store prep (app ID `com.plantdoctor.app`, signing config, privacy policy at yzerr0.github.io/plant-doctor/privacy-policy)
+- [ ] iOS full support (Info.plist, APNs, App Store metadata) — deferred
+- [ ] Play Store AAB upload + store listing (manual — AAB built and ready)
 
 ---
 
@@ -96,7 +96,7 @@ Completed (v0.7 — in progress):
 | Auth | Firebase Auth — Google + Apple + Email + Guest (Anonymous) |
 | Database | Cloud Firestore |
 | Image Storage | Firebase Storage |
-| Species ID | Kindwise plant.id API — permanent (best accuracy for houseplants/cultivars) |
+| Species ID | Pl@ntNet API (best accuracy for houseplants/cultivars) |
 | Disease detection + Care | Claude Vision (claude-sonnet-4) |
 | Weather | OpenWeatherMap API (Cloud Function owned, cached) |
 | Location | geolocator Flutter package |
@@ -121,7 +121,7 @@ Firebase Storage          ← image uploaded, download URL returned
     ▼
 Cloud Function: diagnosePlant(imageUrl, lat?, lng?)
     │
-    ├─ Kindwise plant.id API      ← species ID (permanent — best accuracy)
+    ├─ Pl@ntNet API               ← species ID (best accuracy)
     │      returns: scientificName, displayName, confidence
     │
     ├─ speciesCache lookup        ← Firestore global cache by scientificName
@@ -158,9 +158,9 @@ DiagnosisResult → Firestore (users/{uid}/diagnoses/) + ResultScreen
 
 ```bash
 firebase functions:secrets:set ANTHROPIC_API_KEY
-firebase functions:secrets:set KINDWISE_API_KEY
+firebase functions:secrets:set PLANTNET_API_KEY
 firebase functions:secrets:set OPENWEATHER_API_KEY      # v0.4
-firebase functions:secrets:set REVENUECAT_SECRET_KEY    # v0.6
+firebase functions:secrets:set REVENUECAT_SECRET_KEY    # v0.6 — deferred
 ```
 
 Keys are stored in Google Secret Manager and injected at runtime. Never in source code.
@@ -171,39 +171,51 @@ Keys are stored in Google Secret Manager and injected at runtime. Never in sourc
 
 ```
 lib/
-├── main.dart                     # Firebase init, auth, run app
-├── theme.dart                    # AppTheme: colors, severityColor(), severityIcon()
+├── main.dart                         # Firebase init, Hive init, auth + onboarding router
+├── theme.dart                        # AppTheme: colors, severityColor(), severityIcon()
+├── firebase_options.dart             # Generated by FlutterFire CLI
 ├── models/
-│   ├── diagnosis_model.dart      # DiagnosisResult + SpeciesInfo + PlantIssue + WeatherSnapshot
-│   └── plant_profile.dart        # PlantProfile + PlantNote (v0.5)
+│   ├── diagnosis_model.dart          # DiagnosisResult + SpeciesInfo + PlantIssue + WeatherSnapshot
+│   ├── watering_prefs.dart           # WateringPrefs model (intervalDays, lastWateredAt)
+│   └── weather_model.dart            # WeatherData model
 ├── services/
-│   ├── storage_service.dart      # Upload image → return download URL
-│   ├── firebase_service.dart     # Firestore save / delete / stream
-│   ├── weather_service.dart      # getWeather callable wrapper (v0.4)
-│   └── auth_service.dart         # Sign-in / link / sign-out (v0.3)
-├── providers/                    # Riverpod providers (v0.3+)
+│   ├── storage_service.dart          # Upload image → return download URL
+│   ├── firebase_service.dart         # Firestore save / delete / stream
+│   ├── local_store_service.dart      # Hive offline cache (v0.7)
+│   ├── weather_service.dart          # getWeather callable wrapper (v0.4)
+│   ├── watering_service.dart         # Firestore users/{uid}/wateringPrefs CRUD (v0.5)
+│   ├── reminder_service.dart         # flutter_local_notifications scheduling (v0.5)
+│   ├── fcm_service.dart              # Firebase Cloud Messaging setup
+│   ├── location_service.dart         # geolocator wrapper — getCurrentPosition, requestPermission
+│   └── auth_service.dart             # Sign-in / link / sign-out (v0.3)
+├── providers/                        # Riverpod providers
 │   ├── auth_provider.dart
-│   ├── diagnoses_provider.dart
-│   ├── weather_provider.dart
-│   └── plant_profiles_provider.dart
+│   ├── diagnoses_provider.dart       # Hive cache first, then Firestore stream (v0.7)
+│   ├── species_provider.dart         # speciesGroupsProvider + wateringPrefsProvider (v0.5)
+│   ├── connectivity_provider.dart    # connectivityProvider — online/offline state (v0.7)
+│   └── weather_provider.dart
 ├── screens/
-│   ├── home_screen.dart          # Dashboard + scan button + diagnoses list
-│   ├── loading_screen.dart       # Lottie animation
-│   ├── result_screen.dart        # Full diagnosis display (8 sections, tappable care cells, copy button)
-│   ├── auth_screen.dart          # Google / Apple / Email / Guest sign-in (v0.3)
-│   ├── email_auth_screen.dart    # Email + password sign-in / create account (v0.3)
-│   └── plant_profile_screen.dart # Per-plant history + timeline (v0.5)
+│   ├── home_screen.dart              # Dashboard + scan button + diagnoses list + offline/watering banners
+│   ├── loading_screen.dart           # Lottie animation
+│   ├── result_screen.dart            # Full diagnosis display + "View history →" link
+│   ├── auth_screen.dart              # Google / Apple / Email / Guest sign-in (v0.3)
+│   ├── email_auth_screen.dart        # Email + password sign-in / create account (v0.3)
+│   ├── onboarding_screen.dart        # 3-page onboarding (welcome → location → notifications, v1.0)
+│   ├── plant_profiles_list_screen.dart  # MyPlantsScreen — auto species groups (v0.5)
+│   └── plant_profile_screen.dart     # SpeciesHistoryScreen — timeline + watering (v0.5)
 └── widgets/
-    ├── severity_badge.dart       # Colored pill: healthy/low/medium/high
-    └── issue_card.dart           # Expandable card per issue
+    ├── severity_badge.dart           # Colored pill: healthy/low/medium/high
+    ├── issue_card.dart               # Expandable card per issue
+    └── severity_timeline_chart.dart  # Health timeline chart (v0.5)
 
 functions/
-├── index.js                      # diagnosePlant (withRetry for Claude 529), getWeather, chatWithPlant, etc.
+├── index.js                          # diagnosePlant (withRetry for Claude 529), getWeather, etc.
 ├── lib/
-│   └── utils.js                  # speciesCacheKey() — normalises scientific name to Firestore doc ID
+│   └── utils.js                      # speciesCacheKey() — normalises scientific name to Firestore doc ID
 └── package.json
 
 docs/
+├── privacy-policy.html               # Hosted on GitHub Pages (yzerr0.github.io/plant-doctor/privacy-policy)
 └── superpowers/specs/
     └── 2026-03-25-plantdoctor-v03-to-v10-design.md   # Full feature spec
 ```
@@ -213,13 +225,23 @@ docs/
 ## Key Firestore Collections
 
 ```
-users/{uid}                          # user doc: monthlyScanCount, isPremium, hardinessZone, fcmToken
+users/{uid}                              # user doc: monthlyScanCount, isPremium, hardinessZone, fcmToken
 users/{uid}/diagnoses/{id}           # DiagnosisResult docs
-users/{uid}/plants/{id}              # PlantProfile docs (v0.5)
+users/{uid}/wateringPrefs/{key}      # WateringPrefs per species (base64 scientificName key, v0.5)
 speciesCache/{scientificName}        # global — Cloud Function write only
 weatherCache/{lat2dp_lng2dp}         # global — Cloud Function write only (v0.4)
 seasonalCalendars/{species}_{zone}   # global — Cloud Function write only (v0.6)
 ```
+
+---
+
+## Android Release Config (v1.0)
+
+- **App ID:** `com.plantdoctor.app` (changed from `com.example.plant_doctor` for Play Store)
+- **Signing:** `android/app/build.gradle.kts` reads `android/key.properties` (gitignored) at build time
+- **Keystore location:** `C:/Users/youss/keys/plantdoctor.jks` — **back this up. If lost, can never update the Play Store listing.**
+- **Release build:** `flutter build appbundle --release` — requires `key.properties` filled in
+- **Debug build:** works without keystore (signing config is conditional on `keystorePropertiesFile.exists()`)
 
 ---
 
@@ -238,8 +260,8 @@ See full rules in spec or `firestore.rules`.
 
 | Bug | Fix |
 |---|---|
-| Kindwise 401 | Check KINDWISE_API_KEY is set in Secret Manager and listed in `secrets: [...]` |
-| Kindwise returns no diseases | `is_healthy.binary` may be true — check probability threshold (currently 0.20) |
+| PlantNet 401 | Check PLANTNET_API_KEY is set in Secret Manager and listed in `secrets: [...]` |
+| PlantNet returns no match | Check `results[0].score` threshold (currently 0.20); API key may be rate-limited |
 | Claude returns JSON in code fences | Already stripped with `.replace()` chain |
 | `signInAnonymously` fails | Enable Anonymous Auth in Firebase Console |
 | Firestore permission denied | Check Security Rules — anonymous users need `request.auth != null` not `request.auth.uid` check on global caches |
