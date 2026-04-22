@@ -358,7 +358,12 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
     final hasFilter =
         _searchQuery.isNotEmpty || _severityFilter != 'all';
 
-    return CustomScrollView(
+    final isWide = MediaQuery.of(context).size.shortestSide >= 600;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: isWide ? 680 : double.infinity),
+        child: CustomScrollView(
       slivers: [
         // ── Green hero app bar ──────────────────────────────────────
         SliverAppBar(
@@ -496,6 +501,8 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                       style: TextStyle(color: Colors.grey)))),
         ),
       ],
+        ),
+      ),
     );
   }
 }
@@ -504,6 +511,62 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
 
 class _GreenHero extends ConsumerWidget {
   const _GreenHero();
+
+  void _showAccountMenu(BuildContext context, WidgetRef ref) {
+    final user = ref.read(authStateProvider).valueOrNull;
+    final email = user?.email ?? user?.displayName ?? 'Signed in';
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppTheme.lightGreen,
+                    child: const Icon(Icons.person, color: AppTheme.green),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(email,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Sign Out',
+                  style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(authServiceProvider).signOut();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   LinearGradient _heroGradient(WeatherData? weather, bool isDark) {
     if (weather != null && weather.current.tempC <= 2.0) {
@@ -607,6 +670,21 @@ class _GreenHero extends ConsumerWidget {
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600)),
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () => _showAccountMenu(context, ref),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withOpacity(0.3)),
+                        ),
+                        child: const Icon(Icons.person_outline,
+                            color: Colors.white, size: 18),
                       ),
                     ),
                 ],
@@ -732,7 +810,8 @@ class _WateringBanner extends ConsumerWidget {
     final data = ref.watch(urgentWateringProvider);
     if (data == null) return const SizedBox.shrink();
 
-    final style = _bannerStyle(data.kind);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final style = _bannerStyle(data.kind, isDark);
 
     String title;
     String subtitle;
@@ -827,49 +906,49 @@ class _WateringBanner extends ConsumerWidget {
     );
   }
 
-  _BannerStyle _bannerStyle(WateringBannerKind kind) {
+  _BannerStyle _bannerStyle(WateringBannerKind kind, bool isDark) {
     switch (kind) {
       case WateringBannerKind.overdue:
         return _BannerStyle(
-            bg: const Color(0xFF2D1515),
+            bg: isDark ? const Color(0xFF2D1515) : const Color(0xFFFFEBEE),
             border: const Color(0xFFEF5350),
-            titleColor: const Color(0xFFFFCDD2),
-            subtitleColor: const Color(0xFFEF9A9A),
+            titleColor: isDark ? const Color(0xFFFFCDD2) : const Color(0xFFB71C1C),
+            subtitleColor: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFD32F2F),
             icon: '💧');
       case WateringBannerKind.dueToday:
         return _BannerStyle(
-            bg: const Color(0xFF2D2010),
+            bg: isDark ? const Color(0xFF2D2010) : const Color(0xFFFFF3E0),
             border: const Color(0xFFFF9800),
-            titleColor: const Color(0xFFFFE0B2),
-            subtitleColor: const Color(0xFFFFCC80),
+            titleColor: isDark ? const Color(0xFFFFE0B2) : const Color(0xFFE65100),
+            subtitleColor: isDark ? const Color(0xFFFFCC80) : const Color(0xFFF57C00),
             icon: '💧');
       case WateringBannerKind.dueSoon:
         return _BannerStyle(
-            bg: const Color(0xFF1A2535),
+            bg: isDark ? const Color(0xFF1A2535) : const Color(0xFFE3F2FD),
             border: const Color(0xFF42A5F5),
-            titleColor: const Color(0xFFBBDEFB),
-            subtitleColor: const Color(0xFF90CAF9),
+            titleColor: isDark ? const Color(0xFFBBDEFB) : const Color(0xFF1565C0),
+            subtitleColor: isDark ? const Color(0xFF90CAF9) : const Color(0xFF1976D2),
             icon: '💧');
       case WateringBannerKind.allGood:
         return _BannerStyle(
-            bg: const Color(0xFF1E2D20),
+            bg: isDark ? const Color(0xFF1E2D20) : const Color(0xFFE8F5E9),
             border: const Color(0xFF66BB6A),
-            titleColor: const Color(0xFFC8E6C9),
-            subtitleColor: const Color(0xFFA5D6A7),
+            titleColor: isDark ? const Color(0xFFC8E6C9) : const Color(0xFF1B5E20),
+            subtitleColor: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF2E7D32),
             icon: '💧');
       case WateringBannerKind.rainSkip:
         return _BannerStyle(
-            bg: const Color(0xFF2D1A2D),
+            bg: isDark ? const Color(0xFF2D1A2D) : const Color(0xFFF3E5F5),
             border: const Color(0xFFAB47BC),
-            titleColor: const Color(0xFFE1BEE7),
-            subtitleColor: const Color(0xFFCE93D8),
+            titleColor: isDark ? const Color(0xFFE1BEE7) : const Color(0xFF4A148C),
+            subtitleColor: isDark ? const Color(0xFFCE93D8) : const Color(0xFF7B1FA2),
             icon: '🌧️');
       case WateringBannerKind.frost:
         return _BannerStyle(
-            bg: const Color(0xFF2D1515),
+            bg: isDark ? const Color(0xFF2D1515) : const Color(0xFFFFEBEE),
             border: const Color(0xFFFF5252),
-            titleColor: const Color(0xFFFFCDD2),
-            subtitleColor: const Color(0xFFFF8A80),
+            titleColor: isDark ? const Color(0xFFFFCDD2) : const Color(0xFFB71C1C),
+            subtitleColor: isDark ? const Color(0xFFFF8A80) : const Color(0xFFD32F2F),
             icon: '🌡️');
     }
   }
@@ -990,11 +1069,17 @@ class _DiagnosisCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
     final date =
-        '${diagnosis.createdAt.month}/${diagnosis.createdAt.day}';
+        '${months[diagnosis.createdAt.month - 1]} ${diagnosis.createdAt.day}';
     final subtitle = diagnosis.issues.isEmpty
         ? 'Healthy'
         : '${diagnosis.issues.length} issue${diagnosis.issues.length > 1 ? 's' : ''} found';
+
+    final imageSize = MediaQuery.of(context).size.shortestSide >= 600 ? 68.0 : 48.0;
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
@@ -1011,18 +1096,18 @@ class _DiagnosisCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: CachedNetworkImage(
                   imageUrl: diagnosis.imageUrl,
-                  width: 48,
-                  height: 48,
+                  width: imageSize,
+                  height: imageSize,
                   fit: BoxFit.cover,
                   placeholder: (_, __) => Container(
                     color: AppTheme.lightGreen,
-                    child: const Icon(Icons.local_florist,
-                        color: AppTheme.green, size: 26),
+                    child: Icon(Icons.local_florist,
+                        color: AppTheme.green, size: imageSize * 0.54),
                   ),
                   errorWidget: (_, __, ___) => Container(
                     color: AppTheme.lightGreen,
-                    child: const Icon(Icons.local_florist,
-                        color: AppTheme.green, size: 26),
+                    child: Icon(Icons.local_florist,
+                        color: AppTheme.green, size: imageSize * 0.54),
                   ),
                 ),
               ),

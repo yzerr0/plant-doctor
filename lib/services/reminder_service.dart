@@ -41,7 +41,7 @@ class ReminderService {
       'Check how your plant is doing — $followUpDays days have passed.',
       tz.TZDateTime.from(scheduledDate, tz.local),
       _notifDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
@@ -80,7 +80,7 @@ class ReminderService {
       'Your plant hasn\'t been watered for $intervalDays days.',
       tz.TZDateTime.from(nextWatering, tz.local),
       _notifDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );

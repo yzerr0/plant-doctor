@@ -32,8 +32,13 @@ final diagnosesProvider = StreamProvider<List<DiagnosisResult>>((ref) async* {
 
   // 3. Stream live from Firestore. Each emission is saved to Hive so the cache
   //    stays fresh for the next offline session.
-  await for (final diagnoses in FirebaseService.diagnosesStream(uid)) {
-    await LocalStoreService.saveDiagnoses(uid, diagnoses);
-    yield diagnoses;
+  try {
+    await for (final diagnoses in FirebaseService.diagnosesStream(uid)) {
+      await LocalStoreService.saveDiagnoses(uid, diagnoses);
+      yield diagnoses;
+    }
+  } catch (e) {
+    // Stream errors on sign-out (permission-denied) are expected — swallow them.
+    // The provider re-runs with user == null and yields [] via the guard above.
   }
 });

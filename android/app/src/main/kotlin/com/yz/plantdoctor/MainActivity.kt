@@ -1,4 +1,4 @@
-package com.plantdoctor.app
+package com.yz.plantdoctor
 
 import io.flutter.embedding.android.FlutterActivity
 

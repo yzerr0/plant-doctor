@@ -1,4 +1,4 @@
-# PlantDoctor – CLAUDE.md
+# PlantDoctor – [CLAUDE.md](http://CLAUDE.md)
 
 > Read this file at the start of every session. Update it when architecture changes.
 
@@ -7,7 +7,8 @@
 ## What This App Does
 
 **PlantDoctor** — photograph any plant, get back:
-- Species identification + confidence (Pl@ntNet API — best accuracy for houseplants/cultivars)
+
+- Species identification + confidence (PlantNet API — switched from Kindwise in v0.7, credits exhausted)
 - Health diagnosis — what's wrong, severity, cause (Claude Vision with confirmed species context)
 - Weather-contextualised care advice — diagnosis factors in your real local weather
 - Care guide — light, water, humidity, temp, difficulty, toxicity
@@ -21,13 +22,14 @@ Point. Shoot. Know everything about your plant.
 
 ## Current Status — v1.0 (in progress)
 
-**v0.7 complete. v0.6 skipped (monetisation deferred). Working on v1.0 (onboarding, Play Store).**
+**v1.0 in closed alpha (Play Store). Auth fully fixed and stable.**
 
 Full spec: `docs/superpowers/specs/2026-03-25-plantdoctor-v03-to-v10-design.md`
 
 Completed (v0.3–v0.4): see git log — all items shipped.
 
 Completed (v0.5):
+
 - ✅ Auto species grouping — MyPlantsScreen (replaces manual profiles)
 - ✅ SpeciesHistoryScreen — health timeline + watering card per species
 - ✅ WateringService + WateringPrefs (Firestore users/{uid}/wateringPrefs/{key})
@@ -41,6 +43,7 @@ Completed (v0.5):
 v0.6 — Skipped (monetisation deferred post-launch).
 
 Completed (v0.7):
+
 - ✅ Offline mode — Hive cache (LocalStoreService) mirrors diagnoses locally
 - ✅ diagnosesProvider yields Hive cache first, then live Firestore stream
 - ✅ Offline delete queue — failed deletes queued in Hive, replayed on reconnect
@@ -49,14 +52,19 @@ Completed (v0.7):
   - Set CNN_CLOUD_RUN_URL env var when Cloud Run service is deployed to activate
 
 Completed (v1.0 — in progress):
+
 - ✅ Onboarding flow (3 screens, first-launch only, Hive flag hasSeenOnboarding)
-- ✅ Play Store prep — app ID `com.plantdoctor.app`, release signing config, privacy policy, signed AAB
+- ✅ Auth overhaul — Google Sign-In fixed (oauth_client was empty in google-services.json; needed SHA-1 + Google Sign-In enabled in Firebase Console), email sign-up/sign-in rebuilt with proper mode toggle, confirm password, forgot password, success feedback
+- ✅ Sign-out fixed — re-creates anonymous session via ref.listen on authStateProvider; Firestore stream permission-denied on sign-out swallowed in diagnosesProvider
+- ✅ Account overlap fixed — non-anonymous users in _linkOrSignIn now sign in directly instead of linking (prevents Google+email credential merging)
+- ✅ Account icon in hero for signed-in users (sign-out bottom sheet)
 
 ---
 
 ## Roadmap
 
 ### v0.4 — Weather & Environmental Intelligence ⭐ Killer differentiator
+
 - ✅ GPS location (geolocator, permission deferred to first use)
 - ✅ `getWeather` Cloud Function (OpenWeatherMap, cache per grid cell 30 min)
 - ✅ Local weather panel on home screen
@@ -66,6 +74,7 @@ Completed (v1.0 — in progress):
 - ✅ USDA hardiness zone detection
 
 ### v0.5 — Plant Profiles, Journal & Polish ✅ Complete
+
 - ✅ Auto species grouping (replaces manual profiles)
 - ✅ Health timeline chart + watering card per species
 - ✅ Watering + rescan reminders
@@ -74,29 +83,42 @@ Completed (v1.0 — in progress):
 
 ### v0.6 — Monetisation + Admin Intelligence ⏭ Skipped (deferred post-launch)
 
-### v0.7 — CNN Deployment + Offline Mode ✅ Complete
-- ✅ Offline mode (Hive cache + pending-delete queue)
-- ✅ CNN routing stub (PlantVillage scope + Cloud Run hook — activate via CNN_CLOUD_RUN_URL)
-- [ ] PlantVillage CNN model training + Cloud Run deployment (parallel research track — deferred)
+### v0.7 — CNN Deployment + Offline Mode (in progress)
+
+- [ ] ✅ Offline mode (Hive cache + pending-delete queue)
+
+  - ✅ CNN routing stub (PlantVillage scope + Cloud Run hook — activate via CNN_CLOUD_RUN_URL)
+
+- [ ] PlantVillage CNN model training + Cloud Run deployment (parallel research track)
+
+### v0.7 — CNN Deployment (parallel track from v0.4)
+
+- [ ] PlantVillage CNN on Cloud Run (disease detection for 14 crop species / 38 classes)
+
+- [ ] Graceful fallback to Claude Vision for out-of-scope species
+
+- [ ] Offline mode (Hive full cache)
 
 ### v1.0 — Launch
-- ✅ Onboarding flow (3 screens: welcome → location → notifications, first-launch only)
-- ✅ Play Store prep (app ID `com.plantdoctor.app`, signing config, privacy policy at yzerr0.github.io/plant-doctor/privacy-policy)
+
+- [ ] ✅ Onboarding flow (3 screens: welcome → location → notifications, first-launch only)
+
 - [ ] iOS full support (Info.plist, APNs, App Store metadata) — deferred
-- [ ] Play Store AAB upload + store listing (manual — AAB built and ready)
+
+- [ ] Play Store submission
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | Flutter (Dart) |
 | State | Riverpod |
 | Auth | Firebase Auth — Google + Apple + Email + Guest (Anonymous) |
 | Database | Cloud Firestore |
 | Image Storage | Firebase Storage |
-| Species ID | Pl@ntNet API (best accuracy for houseplants/cultivars) |
+| Species ID | PlantNet API — switched from Kindwise in v0.7 (Kindwise credits exhausted) |
 | Disease detection + Care | Claude Vision (claude-sonnet-4) |
 | Weather | OpenWeatherMap API (Cloud Function owned, cached) |
 | Location | geolocator Flutter package |
@@ -121,7 +143,7 @@ Firebase Storage          ← image uploaded, download URL returned
     ▼
 Cloud Function: diagnosePlant(imageUrl, lat?, lng?)
     │
-    ├─ Pl@ntNet API               ← species ID (best accuracy)
+    ├─ PlantNet API               ← species ID (switched from Kindwise in v0.7)
     │      returns: scientificName, displayName, confidence
     │
     ├─ speciesCache lookup        ← Firestore global cache by scientificName
@@ -139,7 +161,7 @@ Cloud Function: diagnosePlant(imageUrl, lat?, lng?)
 DiagnosisResult → Firestore (users/{uid}/diagnoses/) + ResultScreen
 ```
 
-**Cost reduction:** Species info cache eliminates ~35–40% of Claude output tokens after warmup. CNN (v0.7) reduces Claude usage by ~60% for in-scope crop species.
+**Cost reduction:** Species info cache eliminates \~35–40% of Claude output tokens after warmup. CNN (v0.7) reduces Claude usage by \~60% for in-scope crop species.
 
 ---
 
@@ -150,7 +172,7 @@ DiagnosisResult → Firestore (users/{uid}/diagnoses/) + ResultScreen
 - **Enforcement:** Server-side only (Cloud Function inline reset). Never client-side.
 - **Scan count pattern:** `monthlyScanCount` + `scanCountMonth` fields on `users/{uid}`. Reset lazily inline when month changes. No scheduled function.
 - **RevenueCat:** `isPremium` written to Firestore by webhook. Cloud Function reads locally — no per-scan HTTP call.
-- **Break-even:** ~60 premium subscribers covers ~1,000 free users at 15 scans/month.
+- **Break-even:** \~60 premium subscribers covers \~1,000 free users at 15 scans/month.
 
 ---
 
@@ -158,9 +180,9 @@ DiagnosisResult → Firestore (users/{uid}/diagnoses/) + ResultScreen
 
 ```bash
 firebase functions:secrets:set ANTHROPIC_API_KEY
-firebase functions:secrets:set PLANTNET_API_KEY
+firebase functions:secrets:set PLANTNET_API_KEY         # replaced Kindwise in v0.7
 firebase functions:secrets:set OPENWEATHER_API_KEY      # v0.4
-firebase functions:secrets:set REVENUECAT_SECRET_KEY    # v0.6 — deferred
+firebase functions:secrets:set REVENUECAT_SECRET_KEY    # v0.6 (deferred)
 ```
 
 Keys are stored in Google Secret Manager and injected at runtime. Never in source code.
@@ -171,51 +193,39 @@ Keys are stored in Google Secret Manager and injected at runtime. Never in sourc
 
 ```
 lib/
-├── main.dart                         # Firebase init, Hive init, auth + onboarding router
-├── theme.dart                        # AppTheme: colors, severityColor(), severityIcon()
-├── firebase_options.dart             # Generated by FlutterFire CLI
+├── main.dart                     # Firebase init, auth, run app
+├── theme.dart                    # AppTheme: colors, severityColor(), severityIcon()
 ├── models/
-│   ├── diagnosis_model.dart          # DiagnosisResult + SpeciesInfo + PlantIssue + WeatherSnapshot
-│   ├── watering_prefs.dart           # WateringPrefs model (intervalDays, lastWateredAt)
-│   └── weather_model.dart            # WeatherData model
+│   ├── diagnosis_model.dart      # DiagnosisResult + SpeciesInfo + PlantIssue + WeatherSnapshot
+│   └── plant_profile.dart        # PlantProfile + PlantNote (v0.5)
 ├── services/
-│   ├── storage_service.dart          # Upload image → return download URL
-│   ├── firebase_service.dart         # Firestore save / delete / stream
-│   ├── local_store_service.dart      # Hive offline cache (v0.7)
-│   ├── weather_service.dart          # getWeather callable wrapper (v0.4)
-│   ├── watering_service.dart         # Firestore users/{uid}/wateringPrefs CRUD (v0.5)
-│   ├── reminder_service.dart         # flutter_local_notifications scheduling (v0.5)
-│   ├── fcm_service.dart              # Firebase Cloud Messaging setup
-│   ├── location_service.dart         # geolocator wrapper — getCurrentPosition, requestPermission
-│   └── auth_service.dart             # Sign-in / link / sign-out (v0.3)
-├── providers/                        # Riverpod providers
+│   ├── storage_service.dart      # Upload image → return download URL
+│   ├── firebase_service.dart     # Firestore save / delete / stream
+│   ├── weather_service.dart      # getWeather callable wrapper (v0.4)
+│   └── auth_service.dart         # Sign-in / link / sign-out (v0.3)
+├── providers/                    # Riverpod providers (v0.3+)
 │   ├── auth_provider.dart
-│   ├── diagnoses_provider.dart       # Hive cache first, then Firestore stream (v0.7)
-│   ├── species_provider.dart         # speciesGroupsProvider + wateringPrefsProvider (v0.5)
-│   ├── connectivity_provider.dart    # connectivityProvider — online/offline state (v0.7)
-│   └── weather_provider.dart
+│   ├── diagnoses_provider.dart
+│   ├── weather_provider.dart
+│   └── plant_profiles_provider.dart
 ├── screens/
-│   ├── home_screen.dart              # Dashboard + scan button + diagnoses list + offline/watering banners
-│   ├── loading_screen.dart           # Lottie animation
-│   ├── result_screen.dart            # Full diagnosis display + "View history →" link
-│   ├── auth_screen.dart              # Google / Apple / Email / Guest sign-in (v0.3)
-│   ├── email_auth_screen.dart        # Email + password sign-in / create account (v0.3)
-│   ├── onboarding_screen.dart        # 3-page onboarding (welcome → location → notifications, v1.0)
-│   ├── plant_profiles_list_screen.dart  # MyPlantsScreen — auto species groups (v0.5)
-│   └── plant_profile_screen.dart     # SpeciesHistoryScreen — timeline + watering (v0.5)
+│   ├── home_screen.dart          # Dashboard + scan button + diagnoses list
+│   ├── loading_screen.dart       # Lottie animation
+│   ├── result_screen.dart        # Full diagnosis display (8 sections, tappable care cells, copy button)
+│   ├── auth_screen.dart          # Google / Apple / Email / Guest sign-in (v0.3)
+│   ├── email_auth_screen.dart    # Email + password sign-in / create account (v0.3)
+│   └── plant_profile_screen.dart # Per-plant history + timeline (v0.5)
 └── widgets/
-    ├── severity_badge.dart           # Colored pill: healthy/low/medium/high
-    ├── issue_card.dart               # Expandable card per issue
-    └── severity_timeline_chart.dart  # Health timeline chart (v0.5)
+    ├── severity_badge.dart       # Colored pill: healthy/low/medium/high
+    └── issue_card.dart           # Expandable card per issue
 
 functions/
-├── index.js                          # diagnosePlant (withRetry for Claude 529), getWeather, etc.
+├── index.js                      # diagnosePlant (withRetry for Claude 529), getWeather, chatWithPlant, etc.
 ├── lib/
-│   └── utils.js                      # speciesCacheKey() — normalises scientific name to Firestore doc ID
+│   └── utils.js                  # speciesCacheKey() — normalises scientific name to Firestore doc ID
 └── package.json
 
 docs/
-├── privacy-policy.html               # Hosted on GitHub Pages (yzerr0.github.io/plant-doctor/privacy-policy)
 └── superpowers/specs/
     └── 2026-03-25-plantdoctor-v03-to-v10-design.md   # Full feature spec
 ```
@@ -225,9 +235,9 @@ docs/
 ## Key Firestore Collections
 
 ```
-users/{uid}                              # user doc: monthlyScanCount, isPremium, hardinessZone, fcmToken
+users/{uid}                          # user doc: monthlyScanCount, isPremium, hardinessZone, fcmToken
 users/{uid}/diagnoses/{id}           # DiagnosisResult docs
-users/{uid}/wateringPrefs/{key}      # WateringPrefs per species (base64 scientificName key, v0.5)
+users/{uid}/plants/{id}              # PlantProfile docs (v0.5)
 speciesCache/{scientificName}        # global — Cloud Function write only
 weatherCache/{lat2dp_lng2dp}         # global — Cloud Function write only (v0.4)
 seasonalCalendars/{species}_{zone}   # global — Cloud Function write only (v0.6)
@@ -235,20 +245,9 @@ seasonalCalendars/{species}_{zone}   # global — Cloud Function write only (v0.
 
 ---
 
-## Android Release Config (v1.0)
-
-- **App ID:** `com.plantdoctor.app` (changed from `com.example.plant_doctor` for Play Store)
-- **Signing:** `android/app/build.gradle.kts` reads `android/key.properties` (gitignored) at build time
-- **Keystore location:** `C:/Users/youss/keys/plantdoctor.jks` — **back this up. If lost, can never update the Play Store listing.**
-- **Release build:** `flutter build appbundle --release` — requires `key.properties` filled in
-- **Debug build:** works without keystore (signing config is conditional on `keystorePropertiesFile.exists()`)
-
----
-
 ## Firebase Security Rules (v0.3+)
 
-Rules are locked — do not revert to `allow read, write: if true`.
-See full rules in spec or `firestore.rules`.
+Rules are locked — do not revert to `allow read, write: if true`. See full rules in spec or `firestore.rules`.
 
 - Per-user data (`users/{uid}/...`): auth user can read/write own data only
 - Global caches (`speciesCache`, `weatherCache`): any auth user (incl. anonymous) can read; write only from admin SDK
@@ -259,9 +258,8 @@ See full rules in spec or `firestore.rules`.
 ## Common Bugs
 
 | Bug | Fix |
-|---|---|
+| --- | --- |
 | PlantNet 401 | Check PLANTNET_API_KEY is set in Secret Manager and listed in `secrets: [...]` |
-| PlantNet returns no match | Check `results[0].score` threshold (currently 0.20); API key may be rate-limited |
 | Claude returns JSON in code fences | Already stripped with `.replace()` chain |
 | `signInAnonymously` fails | Enable Anonymous Auth in Firebase Console |
 | Firestore permission denied | Check Security Rules — anonymous users need `request.auth != null` not `request.auth.uid` check on global caches |
@@ -271,4 +269,10 @@ See full rules in spec or `firestore.rules`.
 | RevenueCat webhook 401 | Verify `REVENUECAT_SECRET_KEY` matches what's set in RevenueCat dashboard |
 | Weather not loading | Check OPENWEATHER_API_KEY in Secret Manager; verify geolocator permission granted |
 | Claude 529 overloaded | `withRetry` handles automatically (3 attempts, 2s/4s backoff) — transient, no action needed |
-| Google Sign-In fails on device | Ensure SHA-1 fingerprint added to Firebase project (Project Settings → Android app) |
+| Google Sign-In fails on device | Ensure SHA-1 (debug + release) added to Firebase project AND Google Sign-In enabled in Firebase Console — re-download google-services.json after enabling |
+| Google Sign-In: `oauth_client` empty in google-services.json | Download google-services.json AFTER enabling Google Sign-In in Firebase Console; the oauth_client array must be non-empty |
+| Email sign-in disabled (`operation-not-allowed`) | Enable Email/Password in Firebase Console → Authentication → Sign-in method |
+| Sign-out leaves app on spinner | `ensureAnonymousSession()` re-triggered by `ref.listen` on `authStateProvider` in `_AppRouter` — if stuck, check Anonymous Auth is enabled |
+| `provider-already-linked` on sign-in | Fixed — non-anonymous users in `_linkOrSignIn` now call `signInWithCredential` not `linkWithCredential` |
+| `getSurroundingText` log spam per keystroke | Harmless Android/Flutter IME noise from `obscureText` password fields — not a code bug, no fix needed |
+| Firestore permission-denied crash on sign-out | Fixed — `diagnosesProvider` wraps Firestore stream in try-catch; permission errors on sign-out are swallowed |

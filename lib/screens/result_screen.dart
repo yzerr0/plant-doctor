@@ -16,8 +16,12 @@ class ResultScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final isWide = MediaQuery.of(context).size.shortestSide >= 600;
     return Scaffold(
-      body: CustomScrollView(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWide ? 680 : double.infinity),
+          child: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 240,
@@ -70,6 +74,8 @@ class ResultScreen extends ConsumerWidget {
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }
